@@ -1,7 +1,5 @@
 # packet
 PACKET_SIZE = 2000
-SOURCE_PATH = "client/sleep.png"
-DEST_PATH = "server/sleep.png"
 
 # client
 CLIENT_IP = 'localhost'

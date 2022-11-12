@@ -110,7 +110,7 @@ class Client:
             self.server_port = int(data.decode()[:length])
             break
 
-    def rdt_send(self, filename=SOURCE_PATH):
+    def rdt_send(self, filename):
         '''rdt send filename and file'''
         print('====== ' + filename + ' ======')
         for i in range(2):
@@ -156,7 +156,7 @@ def main():
     client_socket.connect(SERVER_IP, SERVER_PORT)
     # send files
     while True:
-        filename = input('please input relative file path, input nothing to exit:)\n')
+        filename = input('please input relative file path, or input nothing to exit:)\n')
         if filename == '': break
         client_socket.rdt_send(filename)
     # close client socket
