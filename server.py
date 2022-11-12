@@ -1,7 +1,4 @@
 from rdt import *
-from config import *
-import socket
-from threading import Thread
 
 class Server(rdt):
         
@@ -9,9 +6,7 @@ class Server(rdt):
         '''create socket'''
         rdt.__init__(self)
         self.socket.bind(('', port))
-        self.client_addr = (0, 0)
-        # only used by welcome_socket
-        self.connection_port = int(SERVER_PORT) + 1
+        self.connection_port = int(SERVER_PORT) + 1 # only used by welcome_socket
         
     def accept(self):
         '''welcome socket: 3 handshakes and prepare connection_socket'''
@@ -39,15 +34,16 @@ class Server(rdt):
     def connect(self, client_addr):
         '''connection socket: connect client'''
         self.client_addr = client_addr
+        self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
     
     def rdt_transfer(self):
         '''connection socket: rdt receive filename, then upload or download file'''
         for i in range(2):
             # get path
             if i == 0: # save filename
-                dest_path = 'server/temp.txt'
+                dest_path = self.temp_filepath
             else: # recieve file
-                self.file = open('server/temp.txt', 'r')
+                self.file = open(self.temp_filepath, 'r')
                 cmd = str(self.file.read()).split(' ')
                 op = cmd[0]
                 filename = cmd[1]
@@ -59,6 +55,7 @@ class Server(rdt):
             if i == 1 and op == 'frcv': # upload file
                 self.rdt_upload_file(source_path, self.client_addr)
             else: # download file
+                if i == 0: self.socket.settimeout(RCV_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)
 
     def close(self):

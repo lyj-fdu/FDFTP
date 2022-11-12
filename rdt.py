@@ -9,8 +9,6 @@ class rdt:
     
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.file = open('client/temp.txt', 'w')
-        self.file.close()
     
     def make_pkt(self, length=PACKET_SIZE, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
         return struct.pack("5i" + str(PACKET_SIZE) + "s", length, seq, ack, isfin, issyn, data)
@@ -99,7 +97,6 @@ class rdt:
     def receive_msg_pkt_and_send_ack_pkt(self, addr):
         '''receive packet and send ack, until the whole file is acked'''
         while True:
-            # self.socket.settimeout(RCV_TIMEOUT) # in prevention of client offline
             rcvpkt, client_addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
             if isfin == 0:
