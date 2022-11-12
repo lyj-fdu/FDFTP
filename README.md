@@ -32,9 +32,9 @@
         int length; // data的有效长度
         int seq; // 序号
         int ack; // 确认号
-        int isfin; // 结束传输
-        int issyn; // 握手连接
-        int isack; // 区分上传还是下载
+        int isfin; // 结束传输(1)
+        int issyn; // 握手连接(1)
+        int isack; // 客户端(0)服务器(1)
         char[PACKET_SIZE] data; // 负载
     } packet;
     ```

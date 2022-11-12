@@ -22,6 +22,10 @@ class Client:
     def __rdt_rcv(self):
         return self.socket.recvfrom(2048)
     
+    def __deliver_data(self, receive_buffer):
+        self.file.write(receive_buffer)
+        self.file.flush()
+        
     def __send_msg_pkt(self):
         '''send packets inside cwnd, GBN if timeout'''
         while True:
@@ -87,6 +91,97 @@ class Client:
                 self.send_base = self.PACKETS_NUM + 1
                 break
 
+    def __receive_msg_pkt_and_send_ack_pkt(self):
+        '''receive packet and send ack, until the whole file is acked'''
+        while True:
+            # self.socket.settimeout(RCV_TIMEOUT) # in prevention of client offline
+            rcvpkt, client_addr = self.__rdt_rcv()
+            length, seq, ack, isfin, issyn, isack, data = self.__extract(rcvpkt)
+            if isfin == 0:
+                # update ack, expectedseqnum, buffer
+                if seq == self.expectedseqnum:
+                    self.receive_buffer = self.receive_buffer + data[:length]
+                    self.buffer_count += 1
+                    if BUFFER_SIZE <= self.buffer_count:
+                        self.__deliver_data(self.receive_buffer)
+                        self.receive_buffer = bytes()
+                        self.buffer_count = 0
+                        print("flush")
+                    ack = self.expectedseqnum
+                    self.expectedseqnum += 1
+                else:
+                    if seq < self.expectedseqnum:
+                        ack = seq
+                    else:
+                        ack = self.expectedseqnum - 1
+                # send ack packet
+                sndpkt = self.__make_pkt(ack=ack, isfin=isfin)
+                self.__udt_send(sndpkt)
+                print("send     ack=" + str(ack))
+            else:
+                print("receive  fin")
+                # update ack, buffer
+                if seq == self.expectedseqnum:
+                    self.receive_buffer = self.receive_buffer + data[:length]
+                    self.buffer_count += 1
+                    self.__deliver_data(self.receive_buffer)
+                    self.receive_buffer = bytes()
+                    self.buffer_count = 0
+                    print("flush")
+                    ack = self.expectedseqnum
+                else:
+                    isfin = 0
+                    if seq < self.expectedseqnum:
+                        ack = seq
+                    else:
+                        ack = self.expectedseqnum - 1
+                # send ack packet
+                sndpkt = self.__make_pkt(ack=ack, isfin=isfin)
+                self.__udt_send(sndpkt)
+                if isfin == 0:
+                    print("send     ack=" + str(ack))
+                else:
+                    print("send     ack=" + str(ack) + ", finack")
+                    break
+                
+    def __rdt_upload_file(self, source_path):
+        self.file = open(source_path, 'rb')
+        self.FILE_SIZE = os.path.getsize(source_path)
+        self.PACKETS_NUM = self.FILE_SIZE // PACKET_SIZE + 1
+        self.LAST_PACKET_SIZE = self.FILE_SIZE - (self.PACKETS_NUM - 1) * PACKET_SIZE
+        self.send_buffer = []
+        self.timer = time()
+        self.send_base = 1
+        self.nextseqnum = 1
+        self.bufferedseqnum = 0
+        self.sended = 0
+        self.ssthresh = DEFALUT_THRESHOLD
+        self.cwnd = 1.0
+        send = Thread(target=self.__send_msg_pkt)
+        receive = Thread(target=self.__receive_ack_pkt)
+        send.start()
+        receive.start()
+        send.join()
+        receive.join()
+        # close file
+        self.file.close()
+    
+    def __rdt_download_file(self, dest_path):
+        # clear old file
+        try: os.remove(dest_path)
+        except: pass
+        # create file
+        self.file = open(dest_path, 'w')
+        self.file.close()
+        # open file and receive
+        self.file = open(dest_path, 'wb')
+        self.receive_buffer = bytes()
+        self.buffer_count = 0
+        self.expectedseqnum = 1
+        self.__receive_msg_pkt_and_send_ack_pkt()
+        # close file
+        self.file.close()
+    
     def __init__(self):
         '''create socket'''
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -110,41 +205,27 @@ class Client:
             self.server_port = int(data.decode()[:length])
             break
 
-    def rdt_send(self, filename):
-        '''rdt send filename and file'''
-        print('====== ' + filename + ' ======')
+    def rdt_transfer(self, op, filename):
+        '''rdt send filename, then download or upload file'''
         for i in range(2):
-            # get source_path
+            # get path
             if i == 0: # send filename
                 self.file = open('client/temp.txt', 'w')
-                self.file.write(filename[filename.index('/')+1:])
+                self.file.write(op + ' ' + filename)
                 self.file.close()
                 source_path = 'client/temp.txt'
             else: # send file
-                source_path = filename
-            # open file and send
-            self.file = open(source_path, 'rb')
-            self.FILE_SIZE = os.path.getsize(source_path)
-            self.PACKETS_NUM = self.FILE_SIZE // PACKET_SIZE + 1
-            self.LAST_PACKET_SIZE = self.FILE_SIZE - (self.PACKETS_NUM - 1) * PACKET_SIZE
-            self.send_buffer = []
-            self.timer = time()
-            self.send_base = 1
-            self.nextseqnum = 1
-            self.bufferedseqnum = 0
-            self.sended = 0
-            self.ssthresh = DEFALUT_THRESHOLD
-            self.cwnd = 1.0
-            send = Thread(target=self.__send_msg_pkt)
-            receive = Thread(target=self.__receive_ack_pkt)
-            send.start()
-            receive.start()
-            send.join()
-            receive.join()
-            # close file
-            self.file.close()
+                if op == 'fsnd':
+                    source_path = 'client/' + filename
+                else:
+                    dest_path = 'client/' + filename
+            # download file
+            if i == 1 and op == 'frcv':
+                self.__rdt_download_file(dest_path)
+            # upload file
+            self.__rdt_upload_file(source_path)
         # sleep(5)
-            
+
     def close(self):
         '''close socket'''
         self.socket.close()
@@ -156,9 +237,12 @@ def main():
     client_socket.connect(SERVER_IP, SERVER_PORT)
     # send files
     while True:
-        filename = input('please input relative file path, or input nothing to exit:)\n')
-        if filename == '': break
-        client_socket.rdt_send(filename)
+        line = input('input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)\n')
+        if line == '': break # exit
+        cmd = line.split(' ') # analyze
+        print(cmd)
+        if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): continue # wrong cmd
+        client_socket.rdt_transfer(cmd[0], cmd[1]) # execute cmd
     # close client socket
     client_socket.close()
 
