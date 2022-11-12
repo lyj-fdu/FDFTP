@@ -1,13 +1,18 @@
 # packet
 PACKET_SIZE = 2000
+BUFFER_SIZE = 2048
 
 # client
 CLIENT_IP = 'localhost'
-BUFFER_SIZE = 32
-CONG_TIMEOUT = 1
-DEFALUT_THRESHOLD = 16.0
 
 # server
 SERVER_IP = 'localhost'
 SERVER_PORT = 8888
+
+# sender
+CONG_TIMEOUT = 1
+CONG_DEFALUT_SSTHRESH = 16.0
+
+# receiver
+RCV_BUFSIZE = 32
 RCV_TIMEOUT = 30
