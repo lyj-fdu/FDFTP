@@ -71,6 +71,6 @@
 # 附1 命令行
 python server.py
 python client.py
-# 附2 源文件地址与目的地地址
-client/sleep.png
-server/sleep.png
+# 附2 上传下载文件命令示例
+fsnd sleep.png
+frcv sleep.png
