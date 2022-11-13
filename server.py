@@ -75,13 +75,16 @@ class Server(rdt):
 
 def communicate(connection_port, client_addr):
     '''connection socket thread'''
+    # connection socket
     connection_socket = Server(connection_port)
+    # connect
     connection_socket.connect(client_addr)
     try:
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
     except Exception as e:
         print(str(e))
+    # close connection socket
     connection_socket.close()
 
 def main():
@@ -96,8 +99,9 @@ def main():
             connection = Thread(target=communicate, args=(connection_port, client_addr))
             connection.start()
     except Exception as e:
-        welcome_socket.close()
         print(str(e))
+    # close welcome socket
+    welcome_socket.close()
 
 if __name__ == '__main__':
     main()

@@ -62,7 +62,6 @@ def main():
     client_socket = Client()
     # 3 handshakes and connect
     client_socket.connect((SERVER_IP, SERVER_PORT))
-    # send files
     try:
         while True:
             line = input('input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)\n')
