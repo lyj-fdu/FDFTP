@@ -239,4 +239,6 @@ class rdt:
         self.__receive_msg_pkt_and_send_ack_pkt(addr)
         # close file
         self.file.close()
-        if os.path.getsize(dest_path) == 0: os.remove(dest_path)
+        if os.path.getsize(dest_path) == 0:
+            print('file not exists')
+            os.remove(dest_path)

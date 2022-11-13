@@ -28,7 +28,8 @@ class Client(rdt):
     def rdt_transfer(self, op, filename):
         '''rdt send filename, then download or upload file'''
         # upload empty file
-        if op == 'fsnd' and os.path.isfile('client/' + filename) == False: 
+        if op == 'fsnd' and os.path.isfile('client/' + filename) == False:
+            print('file not exists')
             return
         # upload or download file
         self.disconnect = False
@@ -43,7 +44,7 @@ class Client(rdt):
                 if op == 'fsnd': source_path = 'client/' + filename
                 else: dest_path = 'client/' + filename
             if self.disconnect:
-                raise Exception('disconnect')
+                raise Exception(f'disconnect due to {RCV_TIMEOUT}s timeout')
             if i == 1 and op == 'frcv': # download file
                 self.rdt_download_file(dest_path, self.server_addr)
             else: # upload file
@@ -65,9 +66,13 @@ def main():
     try:
         while True:
             line = input('input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)\n')
-            if line == '': break # exit
+            if line == '': # exit
+                print('bye')
+                break
             cmd = line.split(' ') # analyze
-            if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): continue # wrong cmd
+            if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): # wrong cmd
+                print('wrong cmd')
+                continue
             client_socket.rdt_transfer(cmd[0], cmd[1]) # execute cmd
     except Exception as e:
         print(str(e))
