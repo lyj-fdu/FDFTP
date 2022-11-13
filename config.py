@@ -16,3 +16,6 @@ CONG_DEFALUT_SSTHRESH = 16.0
 # receiver
 RCV_BUFSIZE = 32
 RCV_TIMEOUT = 60
+
+# degub
+DEBUG = False

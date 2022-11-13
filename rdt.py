@@ -52,7 +52,8 @@ class rdt:
                     self.ssthresh = 1.0
                 self.cwnd = 1.0
                 self.timer = time()
-                print('timeout  ssthresh=' + str(int(self.ssthresh)))
+                self.resend += 1
+                if DEBUG: print('timeout  ssthresh=' + str(int(self.ssthresh)))
             # send packet
             if self.nextseqnum <= self.PACKETS_NUM and self.nextseqnum < self.send_base + int(self.cwnd):
                 # buffer payload
@@ -69,18 +70,18 @@ class rdt:
                     sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
                     self.udt_send(sndpkt, addr)
                     if self.nextseqnum > self.sended:
-                        print('send     seq=' + str(self.nextseqnum) + ', fin')
+                        if DEBUG: print('send     seq=' + str(self.nextseqnum) + ', fin')
                         self.sended += 1
                     else:
-                        print('resend   seq=' + str(self.nextseqnum) + ', fin')
+                        if DEBUG: print('resend   seq=' + str(self.nextseqnum) + ', fin')
                 else:
                     sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
                     self.udt_send(sndpkt, addr)
                     if self.nextseqnum > self.sended:
-                        print('send     seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
+                        if DEBUG: print('send     seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
                         self.sended += 1
                     else:
-                        print('resend   seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
+                        if DEBUG: print('resend   seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
                 # move next
                 self.nextseqnum += 1
 
@@ -91,7 +92,7 @@ class rdt:
                 rcvpkt, addr = self.rdt_rcv()
                 length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
                 if isfin == 0:
-                    print('receive  ack=' + str(ack))
+                    if DEBUG: print('receive  ack=' + str(ack))
                     if ack == self.send_base:
                         self.send_buffer.pop(0)
                         self.timer = time()
@@ -101,7 +102,7 @@ class rdt:
                         else:
                             self.cwnd += 1 / float(int(self.cwnd))
                 else:
-                    print('receive  ack=' + str(ack) + ', finack')
+                    if DEBUG: print('receive  ack=' + str(ack) + ', finack')
                     self.send_base = self.PACKETS_NUM + 1
                     break
         except: # hint other thread to end
@@ -121,7 +122,7 @@ class rdt:
                         self.__deliver_data()
                         self.receive_buffer = bytes()
                         self.buffer_count = 0
-                        print('flush')
+                        if DEBUG: print('flush')
                     ack = self.expectedseqnum
                     self.expectedseqnum += 1
                 else:
@@ -132,9 +133,9 @@ class rdt:
                 # send ack packet
                 sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                 self.udt_send(sndpkt, addr)
-                print('send     ack=' + str(ack))
+                if DEBUG: print('send     ack=' + str(ack))
             else:
-                print('receive  seq=' + str(seq) + ', fin')
+                if DEBUG: print('receive  seq=' + str(seq) + ', fin')
                 # update ack, buffer
                 if seq == self.expectedseqnum:
                     if length != 0: # length == 0 means download empty file
@@ -143,7 +144,7 @@ class rdt:
                         self.__deliver_data()
                         self.receive_buffer = bytes()
                         self.buffer_count = 0
-                        print('flush')
+                        if DEBUG: print('flush')
                     ack = self.expectedseqnum
                 else:
                     isfin = 0
@@ -155,9 +156,9 @@ class rdt:
                 sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                 self.udt_send(sndpkt, addr)
                 if isfin == 0:
-                    print('send     ack=' + str(ack))
+                    if DEBUG: print('send     ack=' + str(ack))
                 else:
-                    print('send     ack=' + str(ack) + ', finack')
+                    if DEBUG: print('send     ack=' + str(ack) + ', finack')
                     break
                 
     def rdt_upload_file(self, source_path, addr):
@@ -180,6 +181,7 @@ class rdt:
         self.ssthresh = CONG_DEFALUT_SSTHRESH
         self.cwnd = 1.0
         self.disconnect = False
+        self.resend = 0
         # send pkts and receive acks
         send = Thread(target=self.__send_msg_pkt, args=(addr, ))
         receive = Thread(target=self.__receive_ack_pkt)
@@ -190,6 +192,11 @@ class rdt:
         # close file if necessary
         if os.path.isfile(source_path): 
             self.file.close()
+        # calc loss pkt rate
+        if self.resend + self.sended != 0:
+            return self.resend / (self.resend + self.sended)
+        else:
+            return 0
     
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''

@@ -55,7 +55,7 @@ class Server(rdt):
                 cmd = str(self.file.read()).split(' ')
                 op = cmd[0]
                 filename = cmd[1]
-                if op == 'fsnd': dest_path = 'server/' + filename
+                if op == 'fsnd': dest_path = 'server/' + filename[filename.rfind('/')+1:]
                 else: source_path = 'server/' + filename
                 self.file.close()
             # upload or download file
@@ -79,9 +79,12 @@ def communicate(connection_port, client_addr):
     connection_socket = Server(connection_port)
     # connect
     connection_socket.connect(client_addr)
+    print(f'>>> {client_addr} connected')
     try:
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
+    except TimeoutError:
+        print(f'>>> {client_addr} disconnected due to {RCV_TIMEOUT}s timeout')
     except Exception as e:
         print(str(e))
     # close connection socket
