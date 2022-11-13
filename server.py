@@ -58,7 +58,7 @@ class Server(rdt):
                 self.file.close()
             if i == 1 and op == 'frcv': # upload file
                 if os.path.isfile(source_path) == False: # empty file
-                    self.rdt_upload_empty_file(self.client_addr)
+                    self.rdt_upload_missing_file(self.client_addr)
                 else:
                     self.rdt_upload_file(source_path, self.client_addr)
             else: # download file

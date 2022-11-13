@@ -208,7 +208,7 @@ class rdt:
         # close file
         self.file.close()
         
-    def rdt_upload_empty_file(self, addr):
+    def rdt_upload_missing_file(self, addr):
         '''server upload empty file, client doesn't use this because it can detect by cmd'''
         # init params
         self.timer = time()
