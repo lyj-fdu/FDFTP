@@ -24,10 +24,19 @@
 
 ## 1.4 测试
 
-- 用VMware安装两台Ubuntu虚拟机, 并改为桥接模式, 通过ifconfig获得各自的IP地址, 
-    NOTE: 注意不要连校园网, 用自己的路由器或者手机热点才行
-- 利用tc命令模拟丢包, 延迟, 乱序等情况
+- 用VMware安装两台Ubuntu虚拟机, 并都改为桥接模式
+    - 注意不要连校园网, 用自己的路由器或者手机热点才行, IP地址需为192开头
+    - ifconfig 获得虚拟机各自的IP地址
+    - 在配置文件中修改client和server的IP地址
+- 客户端利用tc命令模拟丢包, 延迟, 乱序等情况
+    - sudo tc qdisc add dev eth33 root netem delay 10ms 1ms 10%  将网卡延迟设置在10ms，有10%的可能性±1ms
+    - sudo tc qdisc add dev ens33 root netem loss 5%   添加丢包
+    - sudo tc qdisc add dev eth33 root netem duplicate 1% 添加冗余包
+    - sudo tc qdisc ls 查看网络配置
+    - sudo tc qdisc del dev ens33 root  删除自定义网卡配置
 - 利用md5sum命令比较传输的文件是否准确无误
+    - md5sum client/filename
+    - md5sum server/filename
 
 ## 1.5 报告
 
@@ -45,10 +54,22 @@
 ## 2.2 运行
 
 - 必须首先运行server, server运行的命令为`python server.py`
+
 - 接下来可以开启多个client, 每个client运行的命令为`python client.py`
+
 - 在client的通过命令行可以上传或下载位于指定文件夹下的文件, 示例如下:
   - 上传位于文件夹`client/`下的文件`sleep.png`的命令为`fsnd sleep.png`
   - 下载位于文件夹`server/`下的文件`sleep.png`的命令为`frcv sleep.png`
+
+- 运行效果如下
+
+  - 客户端
+
+    ![client](img/client.png)
+
+  - 服务器
+
+    ![server](img/server.png)
 
 ## 2.3 设计
 
@@ -58,6 +79,8 @@
     |_client: 存储客户端文件
       |_temp: 存储客户端socket的临时文件
         ...
+      ...
+    |_img: README.md文件中所引用的图片
       ...
     |_server: 存储服务器文件
       |_temp: 存储服务器socket的临时文件
@@ -109,10 +132,13 @@
     - client用户输入一个空的相对路径则关闭客户端套接字, 同时删除临时文件
     - server对连接套接字设置timeout, 捕捉到超时异常则关闭连接套接字, 同时删除临时文件
     - client能够检测到server的timeout, 再次尝试上传或下载文件时, 会关闭客户端套接字, 同时删除临时文件
-    
+
+- 指标记录
+
+    - client记录每个文件的平均上传下载速度, 以及上传的丢包率
+    - 由于丢包率只能由发送方测量, 所以client若想得知下载的丢包率, 只需在服务端设置, 由于对称, 所以认为没必要
 ## 2.4 TODO
 
-- 记录平均上传下载速度，以及丢包率
 - 写一下算法细节
 - 校验和？
 - 加分项？

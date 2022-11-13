@@ -4,9 +4,11 @@ BUFFER_SIZE = 2048
 
 # client
 CLIENT_IP = 'localhost'
+# CLIENT_IP = '192.168.43.222'
 
 # server
 SERVER_IP = 'localhost'
+# SERVER_IP = '192.168.43.176'
 SERVER_PORT = 8888
 
 # sender
