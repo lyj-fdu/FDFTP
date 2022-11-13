@@ -57,10 +57,7 @@ class Server(rdt):
                 else: source_path = 'server/' + filename
                 self.file.close()
             if i == 1 and op == 'frcv': # upload file
-                if os.path.isfile(source_path) == False: # empty file
-                    self.rdt_upload_missing_file(self.client_addr)
-                else:
-                    self.rdt_upload_file(source_path, self.client_addr)
+                self.rdt_upload_file(source_path, self.client_addr)
             else: # download file
                 if i == 0: self.socket.settimeout(RCV_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)

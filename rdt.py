@@ -21,7 +21,10 @@ class rdt:
     
     def __rdt_send(self, size):
         '''application layer to transport layer'''
-        return self.file.read(size)
+        if size == 0:
+            return ' '.encode()
+        else:
+            return self.file.read(size)
 
     def udt_send(self, sndpkt, addr):
         '''transport layer to network layer'''
@@ -104,31 +107,6 @@ class rdt:
         except: # hint other thread to end
             self.disconnect = True
             
-    def __send_fin_pkt(self, addr):
-        '''sender: send fin each timeout'''
-        while not self.receive_finack and not self.disconnect:
-            if CONG_TIMEOUT < (time() - self.timer):
-                self.timer = time()
-                self.send_fin = True
-            if self.send_fin:
-                sndpkt = self.make_pkt(length=0, seq=1, isfin=1)
-                self.udt_send(sndpkt, addr)
-                print('send     seq=1, fin')        
-                self.send_fin = False
-        
-    def __receive_finack_pkt(self):
-        '''sender: receive finack, terminate send fin if necessary'''
-        try:
-            while True:
-                rcvpkt, addr = self.rdt_rcv()
-                length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
-                if ack == 1 and isfin == 1:
-                    print('receive  ack=1, finack')
-                    self.receive_finack = True
-                    break
-        except: # hint other thread to end
-            self.disconnect = True
-            
     def __receive_msg_pkt_and_send_ack_pkt(self, addr):
         '''receiver: receive packet and send ack, until the whole file is acked, send fin and wait for finack'''
         while True:
@@ -184,11 +162,15 @@ class rdt:
                 
     def rdt_upload_file(self, source_path, addr):
         '''client or server upload file'''
-        # open file and init params
-        self.file = open(source_path, 'rb')
-        self.FILE_SIZE = os.path.getsize(source_path)
-        self.PACKETS_NUM = self.FILE_SIZE // PACKET_SIZE + 1
-        self.LAST_PACKET_SIZE = self.FILE_SIZE - (self.PACKETS_NUM - 1) * PACKET_SIZE
+        # init params
+        if os.path.isfile(source_path): # open file
+            self.file = open(source_path, 'rb')
+            self.FILE_SIZE = os.path.getsize(source_path)
+            self.PACKETS_NUM = self.FILE_SIZE // PACKET_SIZE + 1
+            self.LAST_PACKET_SIZE = self.FILE_SIZE - (self.PACKETS_NUM - 1) * PACKET_SIZE
+        else: # empty file
+            self.PACKETS_NUM = 1
+            self.LAST_PACKET_SIZE = 0
         self.send_buffer = []
         self.timer = time()
         self.send_base = 1
@@ -205,23 +187,9 @@ class rdt:
         receive.start()
         send.join()
         receive.join()
-        # close file
-        self.file.close()
-        
-    def rdt_upload_missing_file(self, addr):
-        '''server upload empty file, client doesn't use this because it can detect by cmd'''
-        # init params
-        self.timer = time()
-        self.send_fin = True
-        self.receive_finack = False
-        self.disconnect = False
-        # send fin and receive finack
-        send = Thread(target=self.__send_fin_pkt, args=(addr, ))
-        receive = Thread(target=self.__receive_finack_pkt)
-        send.start()
-        receive.start()
-        send.join()
-        receive.join()
+        # close file if necessary
+        if os.path.isfile(source_path): 
+            self.file.close()
     
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''
