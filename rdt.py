@@ -19,7 +19,7 @@ class rdt:
         '''extract transport layer packet'''
         return struct.unpack('5i' + str(PACKET_SIZE) + 's', rcvpkt)
     
-    def rdt_send(self, size):
+    def __rdt_send(self, size):
         '''application layer to transport layer'''
         return self.file.read(size)
 
@@ -31,7 +31,7 @@ class rdt:
         '''network layer to transport layer'''
         return self.socket.recvfrom(BUFFER_SIZE)
     
-    def deliver_data(self):
+    def __deliver_data(self):
         '''transport layer to application layer'''
         self.file.write(self.receive_buffer)
         self.file.flush()
@@ -55,9 +55,9 @@ class rdt:
                 # buffer payload
                 if self.bufferedseqnum < self.nextseqnum:
                     if self.nextseqnum == self.PACKETS_NUM:
-                        self.send_buffer.append(self.rdt_send(self.LAST_PACKET_SIZE))
+                        self.send_buffer.append(self.__rdt_send(self.LAST_PACKET_SIZE))
                     else:
-                        self.send_buffer.append(self.rdt_send(PACKET_SIZE))
+                        self.send_buffer.append(self.__rdt_send(PACKET_SIZE))
                     self.bufferedseqnum = self.nextseqnum
                 # get payload
                 payload = self.send_buffer[self.nextseqnum - self.send_base]
@@ -140,7 +140,7 @@ class rdt:
                     self.receive_buffer = self.receive_buffer + data[:length]
                     self.buffer_count += 1
                     if RCV_BUFSIZE <= self.buffer_count:
-                        self.deliver_data()
+                        self.__deliver_data()
                         self.receive_buffer = bytes()
                         self.buffer_count = 0
                         print('flush')
@@ -162,7 +162,7 @@ class rdt:
                     if length != 0: # length == 0 means download empty file
                         self.receive_buffer = self.receive_buffer + data[:length]
                         self.buffer_count += 1
-                        self.deliver_data()
+                        self.__deliver_data()
                         self.receive_buffer = bytes()
                         self.buffer_count = 0
                         print('flush')
