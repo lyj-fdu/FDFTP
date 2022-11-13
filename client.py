@@ -31,6 +31,7 @@ class Client(rdt):
         if op == 'fsnd' and os.path.isfile('client/' + filename) == False: 
             return
         # upload or download file
+        self.disconnect = False
         for i in range(2):
             # get path
             if i == 0: # send filename
@@ -41,6 +42,8 @@ class Client(rdt):
             else: # send file
                 if op == 'fsnd': source_path = 'client/' + filename
                 else: dest_path = 'client/' + filename
+            if self.disconnect:
+                raise Exception('disconnect')
             if i == 1 and op == 'frcv': # download file
                 self.rdt_download_file(dest_path, self.server_addr)
             else: # upload file

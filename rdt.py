@@ -101,8 +101,7 @@ class rdt:
                     print('receive  ack=' + str(ack) + ', finack')
                     self.send_base = self.PACKETS_NUM + 1
                     break
-        except Exception as e:
-            print(str(e))
+        except: # hint other thread to end
             self.disconnect = True
             
     def __send_fin_pkt(self, addr):
@@ -127,8 +126,7 @@ class rdt:
                     print('receive  ack=1, finack')
                     self.receive_finack = True
                     break
-        except Exception as e:
-            print(str(e))
+        except: # hint other thread to end
             self.disconnect = True
             
     def __receive_msg_pkt_and_send_ack_pkt(self, addr):
