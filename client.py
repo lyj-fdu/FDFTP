@@ -6,7 +6,7 @@ class Client(rdt):
         '''create socket'''
         rdt.__init__(self)
 
-    def connect(self, server_addr=(SERVER_IP, SERVER_PORT)):
+    def connect(self, server_addr):
         '''handshake with welcome_socket and get server_port'''
         self.server_addr = server_addr
         while True:
@@ -16,7 +16,7 @@ class Client(rdt):
             # handshake 2
             rcvpkt, addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
-            if not issyn: continue
+            if not (issyn == 1): continue
             # handshake 3
             re_sndpkt = self.make_pkt(seq=2,issyn=1)
             self.udt_send(re_sndpkt, self.server_addr)
@@ -27,6 +27,8 @@ class Client(rdt):
 
     def rdt_transfer(self, op, filename):
         '''rdt send filename, then download or upload file'''
+        # send file not exists
+        if op == 'fsnd' and os.path.isfile('client/' + filename) == False: return
         for i in range(2):
             # get path
             if i == 0: # send filename
@@ -35,15 +37,12 @@ class Client(rdt):
                 self.file.close()
                 source_path = self.temp_filepath
             else: # send file
-                if op == 'fsnd':
-                    source_path = 'client/' + filename
-                else:
-                    dest_path = 'client/' + filename
+                if op == 'fsnd': source_path = 'client/' + filename
+                else: dest_path = 'client/' + filename
             if i == 1 and op == 'frcv': # download file
                 self.rdt_download_file(dest_path, self.server_addr)
             else: # upload file
                 self.rdt_upload_file(source_path, self.server_addr)
-        # sleep(5)
 
     def close(self):
         '''close socket'''

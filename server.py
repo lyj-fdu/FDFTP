@@ -16,7 +16,10 @@ class Server(rdt):
             # handshake 1
             rcvpkt, client_addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
-            if (issyn != 1) or (seq != 1): continue
+            if not (issyn == 1 and seq == 1): 
+                sndpkt = self.make_pkt(issyn=0)
+                self.udt_send(sndpkt, client_addr)
+                continue
             # handshake 2
             self.client_addr = client_addr
             connection_port = str(self.connection_port)
@@ -25,7 +28,10 @@ class Server(rdt):
             # handshake 3
             re_rcvpkt, re_addr = self.rdt_rcv()
             re_length, re_seq, re_ack, re_isfin, re_issyn, re_data = self.extract(re_rcvpkt)
-            if (re_issyn != 1) or (re_seq != 2) or (client_addr != re_addr): continue
+            if not (re_issyn == 1 and re_seq == 2 and client_addr == re_addr):
+                sndpkt = self.make_pkt(issyn=0)
+                self.udt_send(sndpkt, re_addr)
+                continue
             break
         # prepare connection socket
         self.connection_port += 1
@@ -47,13 +53,23 @@ class Server(rdt):
                 cmd = str(self.file.read()).split(' ')
                 op = cmd[0]
                 filename = cmd[1]
-                if op == 'fsnd':
-                    dest_path = 'server/' + filename
-                else:
-                    source_path = 'server/' + filename
+                if op == 'fsnd': dest_path = 'server/' + filename
+                else: source_path = 'server/' + filename
                 self.file.close()
             if i == 1 and op == 'frcv': # upload file
-                self.rdt_upload_file(source_path, self.client_addr)
+                if os.path.isfile(source_path) == False:
+                    while True:
+                        sndpkt = self.make_pkt(length=0, seq=1, isfin=1)
+                        self.udt_send(sndpkt, self.client_addr)
+                        print("send     seq=1, fin")
+                        rcvpkt, addr = self.rdt_rcv()
+                        length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
+                        if isfin == 1:
+                            print("receive  finack")
+                            self.send_base = self.PACKETS_NUM + 1
+                            break
+                else:
+                    self.rdt_upload_file(source_path, self.client_addr)
             else: # download file
                 if i == 0: self.socket.settimeout(RCV_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)

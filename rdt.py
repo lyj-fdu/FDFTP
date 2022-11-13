@@ -124,12 +124,13 @@ class rdt:
                 print("receive  fin")
                 # update ack, buffer
                 if seq == self.expectedseqnum:
-                    self.receive_buffer = self.receive_buffer + data[:length]
-                    self.buffer_count += 1
-                    self.deliver_data(self.receive_buffer)
-                    self.receive_buffer = bytes()
-                    self.buffer_count = 0
-                    print("flush")
+                    if length != 0:
+                        self.receive_buffer = self.receive_buffer + data[:length]
+                        self.buffer_count += 1
+                        self.deliver_data(self.receive_buffer)
+                        self.receive_buffer = bytes()
+                        self.buffer_count = 0
+                        print("flush")
                     ack = self.expectedseqnum
                 else:
                     isfin = 0
@@ -183,3 +184,4 @@ class rdt:
         self.receive_msg_pkt_and_send_ack_pkt(addr)
         # close file
         self.file.close()
+        if os.path.getsize(dest_path) == 0: os.remove(dest_path)
