@@ -6,13 +6,13 @@ class Server(rdt):
         '''create socket'''
         rdt.__init__(self)
         self.socket.bind(('', port))
-        self.connection_port = int(SERVER_PORT) + 1 # only used by welcome_socket
+        # only used by welcome_socket
+        self.connection_port = int(SERVER_PORT) + 1
         
     def accept(self):
         '''welcome socket: 3 handshakes and prepare connection_socket'''
         # 3 handshakes
         while True:
-            success = False
             # handshake 1
             rcvpkt, client_addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
@@ -57,17 +57,8 @@ class Server(rdt):
                 else: source_path = 'server/' + filename
                 self.file.close()
             if i == 1 and op == 'frcv': # upload file
-                if os.path.isfile(source_path) == False:
-                    while True:
-                        sndpkt = self.make_pkt(length=0, seq=1, isfin=1)
-                        self.udt_send(sndpkt, self.client_addr)
-                        print("send     seq=1, fin")
-                        rcvpkt, addr = self.rdt_rcv()
-                        length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
-                        if isfin == 1:
-                            print("receive  finack")
-                            self.send_base = self.PACKETS_NUM + 1
-                            break
+                if os.path.isfile(source_path) == False: # empty file
+                    self.rdt_upload_empty_file(self.client_addr)
                 else:
                     self.rdt_upload_file(source_path, self.client_addr)
             else: # download file
@@ -75,8 +66,12 @@ class Server(rdt):
                 self.rdt_download_file(dest_path, self.client_addr)
 
     def close(self):
-        '''close socket'''
+        '''close socket and clear tempfile'''
         self.socket.close()
+        try: self.file.close()
+        except: pass
+        try: os.remove(self.temp_filepath)
+        except: pass
 
 def communicate(connection_port, client_addr):
     '''connection socket thread'''
@@ -86,8 +81,8 @@ def communicate(connection_port, client_addr):
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
     except Exception as e:
-        connection_socket.close()
         print(str(e))
+    connection_socket.close()
 
 def main():
     # welcome socket
@@ -104,5 +99,5 @@ def main():
         welcome_socket.close()
         print(str(e))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

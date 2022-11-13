@@ -5,7 +5,7 @@ class Client(rdt):
     def __init__(self):
         '''create socket'''
         rdt.__init__(self)
-
+        
     def connect(self, server_addr):
         '''handshake with welcome_socket and get server_port'''
         self.server_addr = server_addr
@@ -27,8 +27,10 @@ class Client(rdt):
 
     def rdt_transfer(self, op, filename):
         '''rdt send filename, then download or upload file'''
-        # send file not exists
-        if op == 'fsnd' and os.path.isfile('client/' + filename) == False: return
+        # upload empty file
+        if op == 'fsnd' and os.path.isfile('client/' + filename) == False: 
+            return
+        # upload or download file
         for i in range(2):
             # get path
             if i == 0: # send filename
@@ -45,10 +47,12 @@ class Client(rdt):
                 self.rdt_upload_file(source_path, self.server_addr)
 
     def close(self):
-        '''close socket'''
+        '''close socket and clear tempfile'''
+        self.socket.close()
+        try: self.file.close()
+        except: pass
         try: os.remove(self.temp_filepath)
         except: pass
-        self.socket.close()
 
 def main():
     # client socket
@@ -56,14 +60,17 @@ def main():
     # 3 handshakes and connect
     client_socket.connect((SERVER_IP, SERVER_PORT))
     # send files
-    while True:
-        line = input('input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)\n')
-        if line == '': break # exit
-        cmd = line.split(' ') # analyze
-        if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): continue # wrong cmd
-        client_socket.rdt_transfer(cmd[0], cmd[1]) # execute cmd
+    try:
+        while True:
+            line = input('input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)\n')
+            if line == '': break # exit
+            cmd = line.split(' ') # analyze
+            if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): continue # wrong cmd
+            client_socket.rdt_transfer(cmd[0], cmd[1]) # execute cmd
+    except Exception as e:
+        print(str(e))
     # close client socket
     client_socket.close()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
