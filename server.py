@@ -11,7 +11,7 @@ class Server(rdt):
         
     def accept(self):
         '''welcome socket: 3 handshakes and prepare connection_socket'''
-        # 3 handshakes
+        # handshake with client socket
         while True:
             # handshake 1
             rcvpkt, client_addr = self.rdt_rcv()
@@ -39,11 +39,13 @@ class Server(rdt):
     
     def connect(self, client_addr):
         '''connection socket: connect client'''
+        # connect with client socket
         self.client_addr = client_addr
         self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
     
     def rdt_transfer(self):
         '''connection socket: rdt receive filename, then upload or download file'''
+        # upload or download file
         for i in range(2):
             # get path
             if i == 0: # save filename
@@ -56,6 +58,7 @@ class Server(rdt):
                 if op == 'fsnd': dest_path = 'server/' + filename
                 else: source_path = 'server/' + filename
                 self.file.close()
+            # upload or download file
             if i == 1 and op == 'frcv': # upload file
                 self.rdt_upload_file(source_path, self.client_addr)
             else: # download file

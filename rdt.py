@@ -194,8 +194,8 @@ class rdt:
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''
         # clear old file
-        try: os.remove(dest_path)
-        except: pass
+        if os.path.isfile(dest_path): 
+            os.remove(dest_path)
         # create file
         self.file = open(dest_path, 'w')
         self.file.close()

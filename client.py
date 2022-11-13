@@ -8,6 +8,7 @@ class Client(rdt):
         
     def connect(self, server_addr):
         '''handshake with welcome_socket and get server_port'''
+        # handshake with welcome socket
         self.server_addr = server_addr
         while True:
             # handshake 1
@@ -20,14 +21,14 @@ class Client(rdt):
             # handshake 3
             re_sndpkt = self.make_pkt(seq=2,issyn=1)
             self.udt_send(re_sndpkt, self.server_addr)
-            # get server_port
-            self.server_addr = (self.server_addr[0], int(data.decode()[:length]))
             break
+        # connect with connection socket
+        self.server_addr = (self.server_addr[0], int(data.decode()[:length]))
         self.temp_filepath = 'client/temp/' + str(self.socket.getsockname()[1]) + '.txt'
 
     def rdt_transfer(self, op, filename):
         '''rdt send filename, then download or upload file'''
-        # upload empty file
+        # optimize judging uploading non-existing file here
         if op == 'fsnd' and os.path.isfile('client/' + filename) == False:
             print('file not exists')
             return
@@ -43,8 +44,10 @@ class Client(rdt):
             else: # send file
                 if op == 'fsnd': source_path = 'client/' + filename
                 else: dest_path = 'client/' + filename
+            # check if disconnected
             if self.disconnect:
                 raise Exception(f'disconnect due to {RCV_TIMEOUT}s timeout')
+            # upload or download file
             if i == 1 and op == 'frcv': # download file
                 self.rdt_download_file(dest_path, self.server_addr)
             else: # upload file
