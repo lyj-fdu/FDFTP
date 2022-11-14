@@ -10,6 +10,7 @@ class rdt:
     def __init__(self):
         '''create UDP socket'''
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.temp_filepath = ''
     
     def make_pkt(self, length=PACKET_SIZE, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
         '''make transport layer packet'''
@@ -217,3 +218,12 @@ class rdt:
         if os.path.getsize(dest_path) == 0:
             print('file not exists')
             os.remove(dest_path)
+
+    def close(self):
+        '''close socket and clear tempfile'''
+        self.socket.close()
+        try: self.file.close()
+        except: pass
+        try: os.remove(self.temp_filepath)
+        except: pass
+    

@@ -1,13 +1,13 @@
 from rdt import *
 
 class Client(rdt):
-    
+
     def __init__(self):
         '''create socket'''
         rdt.__init__(self)
-        
+
     def connect(self, server_addr):
-        '''handshake with welcome_socket and get server_port'''
+        '''handshake with welcome_socket and connect with connection socket'''
         # handshake with welcome socket
         self.server_addr = server_addr
         while True:
@@ -46,7 +46,7 @@ class Client(rdt):
                 else: dest_path = 'client/' + filename[filename.rfind('/')+1:]
             # check if disconnected
             if self.disconnect:
-                raise Exception(f'disconnect due to {RCV_TIMEOUT}s timeout')
+                raise Exception(f'server is closed or {RCV_TIMEOUT}s timeout\nbye')
             # upload or download file
             if i == 1: beg = time()
             if i == 1 and op == 'frcv': # download file
@@ -62,21 +62,13 @@ class Client(rdt):
                     fsize = os.path.getsize(source_path)
                     print(f'ok, upload {fsize}B, rate={8*fsize/(end-beg)}bps, loss_pkt_rate={loss_pkt_rate*100}%')
 
-    def close(self):
-        '''close socket and clear tempfile'''
-        self.socket.close()
-        try: self.file.close()
-        except: pass
-        try: os.remove(self.temp_filepath)
-        except: pass
-
 def main():
     # client socket
     client_socket = Client()
     # 3 handshakes and connect
-    client_socket.connect((SERVER_IP, SERVER_PORT))
-    print('>>> input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)')
     try:
+        client_socket.connect((SERVER_IP, SERVER_PORT))
+        print('>>> input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)')
         while True:
             line = input('>>> ')
             if line == '': # exit

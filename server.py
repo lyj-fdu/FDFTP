@@ -1,16 +1,20 @@
 from rdt import *
 
 class Server(rdt):
-        
     def __init__(self, port):
         '''create socket'''
         rdt.__init__(self)
         self.socket.bind(('', port))
-        # only used by welcome_socket
+
+class WelcomeServer(Server):
+
+    def __init__(self, port):
+        '''create socket and connection_port'''
+        Server.__init__(self, port)
         self.connection_port = int(SERVER_PORT) + 1
-        
+
     def accept(self):
-        '''welcome socket: 3 handshakes and prepare connection_socket'''
+        '''3 handshakes and prepare connection_socket'''
         # handshake with client socket
         while True:
             # handshake 1
@@ -36,15 +40,21 @@ class Server(rdt):
         # prepare connection socket
         self.connection_port += 1
         return (self.connection_port - 1, client_addr)
-    
+
+class ConnectionServer(Server):
+
+    def __init__(self, port):
+        '''create socket'''
+        Server.__init__(self, port)
+
     def connect(self, client_addr):
-        '''connection socket: connect client'''
+        '''connect client'''
         # connect with client socket
         self.client_addr = client_addr
         self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
-    
+
     def rdt_transfer(self):
-        '''connection socket: rdt receive filename, then upload or download file'''
+        '''rdt receive filename, then upload or download file'''
         # upload or download file
         for i in range(2):
             # get path
@@ -65,18 +75,10 @@ class Server(rdt):
                 if i == 0: self.socket.settimeout(RCV_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)
 
-    def close(self):
-        '''close socket and clear tempfile'''
-        self.socket.close()
-        try: self.file.close()
-        except: pass
-        try: os.remove(self.temp_filepath)
-        except: pass
-
 def communicate(connection_port, client_addr):
     '''connection socket thread'''
     # connection socket
-    connection_socket = Server(connection_port)
+    connection_socket = ConnectionServer(connection_port)
     # connect
     connection_socket.connect(client_addr)
     print(f'>>> {client_addr} connected')
@@ -92,7 +94,7 @@ def communicate(connection_port, client_addr):
 
 def main():
     # welcome socket
-    welcome_socket = Server(SERVER_PORT)
+    welcome_socket = WelcomeServer(SERVER_PORT)
     # listen
     try:
         while True:
