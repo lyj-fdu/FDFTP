@@ -22,18 +22,18 @@
 - ……
 - 以及其他在基本要求之上的功能实现
 
-## 1.4 测试
+## 1.4 本地测试
 
 - 用VMware安装两台Ubuntu虚拟机, 并都改为桥接模式
-    - 注意不要连校园网, 用自己的路由器或者手机热点才行, IP地址需为192开头
-    - ifconfig 获得虚拟机各自的IP地址
+    - 通过ifconfig获得虚拟机各自的IP地址
     - 在配置文件中修改client和server的IP地址
 - 客户端利用tc命令模拟丢包, 延迟, 乱序等情况
-    - sudo tc qdisc add dev eth33 root netem delay 10ms 1ms 10%  将网卡延迟设置在10ms，有10%的可能性±1ms
-    - sudo tc qdisc add dev ens33 root netem loss 5%   添加丢包
-    - sudo tc qdisc add dev eth33 root netem duplicate 1% 添加冗余包
-    - sudo tc qdisc ls 查看网络配置
-    - sudo tc qdisc del dev ens33 root  删除自定义网卡配置
+    - 将网卡延迟设置在10ms, 有10%的可能性±1ms; 添加5%的丢包
+      sudo tc qdisc add dev ens33 root netem delay 10ms 1ms 10% loss 5%
+    - 查看网络配置
+      sudo tc qdisc ls
+    - 删除自定义网卡配置
+      sudo tc qdisc del dev ens33 root
 - 利用md5sum命令比较传输的文件是否准确无误
     - md5sum client/filename
     - md5sum server/filename
