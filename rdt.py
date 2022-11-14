@@ -37,52 +37,61 @@ class rdt:
     
     def __deliver_data(self):
         '''transport layer to application layer'''
-        self.file.write(self.receive_buffer)
-        self.file.flush()
+        self.file.write(self.deliver_data)
         
     def __send_msg_pkt(self, addr):
         '''sender: send packets inside cwnd, GBN if timeout'''
         while not self.disconnect:
+            # pop
+            gap = self.send_base - self.old_base
+            if gap > 0:
+                for i in range(gap):
+                    self.send_buffer.pop(0)
+                self.old_base = self.old_base + gap
             # send all packets
-            if self.PACKETS_NUM < self.send_base: break
+            if self.PACKETS_NUM < self.old_base: break
             # timeout
             if CONG_TIMEOUT < (time() - self.timer):
-                self.nextseqnum = self.send_base
+                self.nextseqnum = self.old_base
                 self.ssthresh = float(int(self.cwnd) // 2)
                 if self.ssthresh < 1.0:
                     self.ssthresh = 1.0
                 self.cwnd = 1.0
                 self.timer = time()
-                self.resend += 1
+                # self.resend += 1
                 if DEBUG: print('timeout  ssthresh=' + str(int(self.ssthresh)))
             # send packet
-            if self.nextseqnum <= self.PACKETS_NUM and self.nextseqnum < self.send_base + int(self.cwnd):
+            if self.nextseqnum <= self.PACKETS_NUM and self.old_base <= self.nextseqnum and self.nextseqnum < self.old_base + int(self.cwnd):
                 # buffer payload
+                flag = False
                 if self.bufferedseqnum < self.nextseqnum:
                     if self.nextseqnum == self.PACKETS_NUM:
                         self.send_buffer.append(self.__rdt_send(self.LAST_PACKET_SIZE))
                     else:
                         self.send_buffer.append(self.__rdt_send(PACKET_SIZE))
                     self.bufferedseqnum = self.nextseqnum
-                # get payload
-                payload = self.send_buffer[self.nextseqnum - self.send_base]
+                    flag = True
                 # send packet
-                if self.nextseqnum == self.PACKETS_NUM:
-                    sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
-                    self.udt_send(sndpkt, addr)
-                    if self.nextseqnum > self.sended:
-                        if DEBUG: print('send     seq=' + str(self.nextseqnum) + ', fin')
-                        self.sended += 1
+                if self.nextseqnum == self.old_base or flag:
+                    payload = self.send_buffer[self.nextseqnum - self.old_base]
+                    if self.nextseqnum == self.PACKETS_NUM:
+                        sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
+                        self.udt_send(sndpkt, addr)
+                        if self.nextseqnum > self.sended:
+                            if DEBUG: print('send     seq=' + str(self.nextseqnum) + ', fin')
+                            self.sended += 1
+                        else:
+                            if DEBUG: print('resend   seq=' + str(self.nextseqnum) + ', fin')
+                            self.resend += 1
                     else:
-                        if DEBUG: print('resend   seq=' + str(self.nextseqnum) + ', fin')
-                else:
-                    sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
-                    self.udt_send(sndpkt, addr)
-                    if self.nextseqnum > self.sended:
-                        if DEBUG: print('send     seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
-                        self.sended += 1
-                    else:
-                        if DEBUG: print('resend   seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
+                        sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
+                        self.udt_send(sndpkt, addr)
+                        if self.nextseqnum > self.sended:
+                            if DEBUG: print('send     seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
+                            self.sended += 1
+                        else:
+                            if DEBUG: print('resend   seq=' + str(self.nextseqnum) + ', cwnd=' + str(int(self.cwnd)))
+                            self.resend += 1
                 # move next
                 self.nextseqnum += 1
 
@@ -94,14 +103,30 @@ class rdt:
                 length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
                 if isfin == 0:
                     if DEBUG: print('receive  ack=' + str(ack))
-                    if ack == self.send_base:
-                        self.send_buffer.pop(0)
+                    if self.send_base == ack + 1:
+                        self.dul_ack += 1
+                        if self.dul_ack == 3:
+                            self.timer = time()
+                            self.ssthresh = float(int(self.cwnd) // 2)
+                            if self.ssthresh < 1.0:
+                                self.ssthresh = 1.0
+                            self.cwnd = int(self.ssthresh) + 3
+                            self.nextseqnum = self.old_base
+                            if DEBUG: print(f'FR       seq={self.nextseqnum}, cwnd={self.cwnd}')
+                        if self.dul_ack > 3:
+                            self.timer = time()
+                            self.cwnd += 1
+                    if self.send_base <= ack:
+                        if self.dul_ack >= 3:
+                            self.cwnd = int(self.ssthresh)
+                        self.dul_ack = 1
+                        gap = ack - self.send_base + 1
+                        self.send_base = self.send_base + gap
                         self.timer = time()
-                        self.send_base = ack + 1
                         if self.cwnd < self.ssthresh:
-                            self.cwnd += 1.0
+                            self.cwnd += 1.0 * gap
                         else:
-                            self.cwnd += 1 / float(int(self.cwnd))
+                            self.cwnd += 1 / float(int(self.cwnd)) * gap
                 else:
                     if DEBUG: print('receive  ack=' + str(ack) + ', finack')
                     self.send_base = self.PACKETS_NUM + 1
@@ -116,21 +141,36 @@ class rdt:
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
             if isfin == 0:
                 # update ack, expectedseqnum, buffer
-                if seq == self.expectedseqnum:
-                    self.receive_buffer = self.receive_buffer + data[:length]
-                    self.buffer_count += 1
-                    if RCV_BUFSIZE <= self.buffer_count:
-                        self.__deliver_data()
-                        self.receive_buffer = bytes()
-                        self.buffer_count = 0
-                        if DEBUG: print('flush')
-                    ack = self.expectedseqnum
-                    self.expectedseqnum += 1
+                if seq < self.expectedseqnum:
+                    ack = seq
                 else:
-                    if seq < self.expectedseqnum:
-                        ack = seq
+                    if seq == self.expectedseqnum:
+                        # buffer it
+                        self.rack[0] = True
+                        self.rbuf[0] = data[:length]
+                        # deliver sequence
+                        if self.rack.count(False) != 0:
+                            deliver_num = self.rack.index(False)
+                        else:
+                            deliver_num = len(self.rack)
+                        for i in range(deliver_num):
+                            self.deliver_data = self.deliver_data + self.rbuf[0]
+                            self.rbuf.pop(0)
+                            self.rbuf.append(None)
+                            self.rack.pop(0)
+                            self.rack.append(False)
+                        self.__deliver_data()
+                        self.deliver_data = bytes()
+                        if DEBUG: print(f'flush {deliver_num} pkts')
+                        self.expectedseqnum += deliver_num
+                    elif seq < self.expectedseqnum + RCV_BUFSIZE:
+                        # buffer valid
+                        if not self.rack[seq - self.expectedseqnum]:
+                            self.rack[seq - self.expectedseqnum] = True
+                            self.rbuf[seq - self.expectedseqnum] = data[:length]
                     else:
-                        ack = self.expectedseqnum - 1
+                        pass
+                    ack = self.expectedseqnum - 1
                 # send ack packet
                 sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                 self.udt_send(sndpkt, addr)
@@ -138,21 +178,20 @@ class rdt:
             else:
                 if DEBUG: print('receive  seq=' + str(seq) + ', fin')
                 # update ack, buffer
-                if seq == self.expectedseqnum:
+                if seq < self.expectedseqnum:
+                    isfin = 0
+                    ack = seq
+                elif seq == self.expectedseqnum:
                     if length != 0: # length == 0 means download empty file
-                        self.receive_buffer = self.receive_buffer + data[:length]
-                        self.buffer_count += 1
+                        self.deliver_data = self.deliver_data + data[:length]
                         self.__deliver_data()
-                        self.receive_buffer = bytes()
-                        self.buffer_count = 0
-                        if DEBUG: print('flush')
+                        self.file.flush()
+                        self.deliver_data = bytes()
+                        if DEBUG: print('flush remaining pkts')
                     ack = self.expectedseqnum
                 else:
                     isfin = 0
-                    if seq < self.expectedseqnum:
-                        ack = seq
-                    else:
-                        ack = self.expectedseqnum - 1
+                    ack = self.expectedseqnum - 1
                 # send ack packet
                 sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                 self.udt_send(sndpkt, addr)
@@ -176,13 +215,15 @@ class rdt:
         self.send_buffer = []
         self.timer = time()
         self.send_base = 1
+        self.old_base = 1
         self.nextseqnum = 1
         self.bufferedseqnum = 0
         self.sended = 0
+        self.resend = 0
         self.ssthresh = CONG_DEFALUT_SSTHRESH
         self.cwnd = 1.0
+        self.dul_ack = 1
         self.disconnect = False
-        self.resend = 0
         # send pkts and receive acks
         send = Thread(target=self.__send_msg_pkt, args=(addr, ))
         receive = Thread(target=self.__receive_ack_pkt)
@@ -195,7 +236,7 @@ class rdt:
             self.file.close()
         # calc loss pkt rate
         if self.resend + self.sended != 0:
-            return self.resend / (self.resend + self.sended)
+            return self.sended / (self.resend + self.sended)
         else:
             return 0
     
@@ -209,9 +250,10 @@ class rdt:
         self.file.close()
         # open file and receive
         self.file = open(dest_path, 'wb')
-        self.receive_buffer = bytes()
-        self.buffer_count = 0
         self.expectedseqnum = 1
+        self.rbuf = [None] * RCV_BUFSIZE
+        self.rack = [False] * RCV_BUFSIZE
+        self.deliver_data = bytes()
         self.__receive_msg_pkt_and_send_ack_pkt(addr)
         # close file
         self.file.close()

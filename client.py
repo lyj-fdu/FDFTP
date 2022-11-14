@@ -56,11 +56,11 @@ class Client(rdt):
                     fsize = os.path.getsize(dest_path)
                     print(f'ok, download {fsize}B, rate={8*fsize/(end-beg)}bps')
             else: # upload file
-                loss_pkt_rate = self.rdt_upload_file(source_path, self.server_addr)
+                goodput = self.rdt_upload_file(source_path, self.server_addr)
                 if i == 1:
                     end = time()
                     fsize = os.path.getsize(source_path)
-                    print(f'ok, upload {fsize}B, rate={8*fsize/(end-beg)}bps, loss_pkt_rate={loss_pkt_rate*100}%')
+                    print(f'ok, upload {fsize}B, rate={8*fsize/(end-beg)}bps, goodput={goodput*100}%')
 
 def main():
     # client socket
