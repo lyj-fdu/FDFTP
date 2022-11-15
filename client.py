@@ -71,6 +71,7 @@ def main():
     try:
         client_socket.connect((SERVER_IP, SERVER_PORT))
         print('>>> input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)')
+        print('  > upload file should be under folder `client`, download file should be under folder `server`')
         while True:
             line = input('>>> ')
             if line == '': # exit
