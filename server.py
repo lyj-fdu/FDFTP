@@ -72,7 +72,7 @@ class ConnectionServer(Server):
             if i == 1 and op == 'frcv': # upload file
                 self.rdt_upload_file(source_path, self.client_addr)
             else: # download file
-                if i == 0: self.socket.settimeout(RCV_TIMEOUT) # detect offline of client
+                if i == 0: self.socket.settimeout(CLIENT_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)
 
 def communicate(connection_port, client_addr):
@@ -86,7 +86,7 @@ def communicate(connection_port, client_addr):
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
     except TimeoutError:
-        print(f'>>> {client_addr} disconnected due to {RCV_TIMEOUT}s timeout')
+        print(f'>>> {client_addr} disconnected due to {CLIENT_TIMEOUT}s timeout')
     except Exception as e:
         print(str(e))
     # close connection socket

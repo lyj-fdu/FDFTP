@@ -46,7 +46,7 @@ class Client(rdt):
                 else: dest_path = 'client/' + filename[filename.rfind('/')+1:]
             # check if disconnected
             if self.disconnect:
-                raise Exception(f'server is closed or {RCV_TIMEOUT}s timeout\nbye')
+                raise Exception(f'server is closed or {CLIENT_TIMEOUT}s timeout\nbye')
             # upload or download file
             if i == 1: beg = time()
             if i == 1 and op == 'frcv': # download file
