@@ -128,7 +128,8 @@ class rdt:
                                 self.timer = time.time()
                         # recive confirming ack
                         if self.send_base <= ack:
-                            if self.dulplicate_ack >= 3:
+                            # after fast retransmit but not partial ack
+                            if self.dulplicate_ack >= 3 and not (ack < self.send_base + self.cwnd):
                                 self.cwnd = self.ssthresh
                             self.dulplicate_ack = 1
                             gap = ack - self.send_base + 1
