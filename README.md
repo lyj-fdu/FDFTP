@@ -170,15 +170,17 @@
 - 升级GBN
 - 升级TCP-Tahoe
 
-# 3 第二次迭代（2022.11.14 - 2022.11.15)
+# 3 第二次迭代
 
-## 3.1 功能更新
+## 3.1 2022.11.14 - 2022.11.15
+
+### 3.1.1 功能更新
 
 - 由GBN变为TCP, 但方便起见, 保留一些GBN的特性(ack仍为GBN的ack, seq仍为包号)
 - 由TCP-Tahoe变为TCP-Reno, 增加了快速重传/快速恢复机制FR/FR, 利用threading库的Lock解决并发问题
 - 导入了助教的Task模块进行性能测试
 
-## 3.2 测试
+### 3.1.2 测试
 
 - 环境
 
@@ -187,7 +189,7 @@
 
 - 运行截图
 
-  ![v2-client](img/v2-client.png)
+  ![v2-client](img/v2.1-client.png)
 
 - 由md5sum得知文件传送无误, 且其性能参数提取如下
 
@@ -196,6 +198,32 @@
   score:78.2454449295223
   ```
 - 对比第一次迭代，综合性能提升了20倍左右
+
+## 3.2 2022.11.16
+
+### 3.2.1 功能更新
+
+- TCP-Reno变为TCP-NewReno, 区分partial ack和complete ack
+
+### 3.1.2 测试
+
+- 环境
+
+  - sudo tc qdisc add dev ens33 root netem delay 10ms 1ms 10% loss 5%
+  - 客户端向服务器传送一个约38MB的pdf文件
+
+- 运行截图
+
+  ![v2-client](img/v2.2-client.png)
+
+- 由md5sum得知文件传送无误, 且其性能参数提取如下
+
+  ```plain
+  goodput:310.61751367589835Mbps
+  score:224.03822913881967
+  ```
+
+- 对比第一次迭代，综合性能提升了70倍左右
 
 ## 3.3 TODO
 

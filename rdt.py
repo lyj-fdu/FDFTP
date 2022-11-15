@@ -113,7 +113,9 @@ class rdt:
                     if isfin == 0:
                         if DEBUG: print(f'receive  ack={ack}')
                         # fast retransmit
-                        if self.send_base == ack + 1:
+                        if ack < self.send_base - 1:
+                            pass
+                        elif ack < self.send_base:
                             self.dulplicate_ack += 1
                             if self.dulplicate_ack == 3:
                                 self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
@@ -126,17 +128,23 @@ class rdt:
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                                 self.timer = time.time()
-                        # recive confirming ack
-                        if self.send_base <= ack:
-                            # after fast retransmit but not partial ack
-                            if self.dulplicate_ack >= 3 and not (ack < self.send_base + self.cwnd):
-                                self.cwnd = self.ssthresh
+                        # partial ack
+                        elif self.send_base <= ack and ack < self.send_base + self.cwnd - 1:
                             self.dulplicate_ack = 1
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
                             self.nextseqnum = self.send_base
                             del self.send_buffer[0:gap]
+                            self.fast_retransmit = True
                             self.timer = time.time()
+                        # complete ack
+                        else:
+                            self.dulplicate_ack = 1
+                            gap = ack - self.send_base + 1
+                            self.send_base = self.send_base + gap
+                            self.nextseqnum = self.send_base
+                            del self.send_buffer[0:gap]
+                            self.cwnd = self.ssthresh
                             for i in range(gap):
                                 if self.cwnd < self.ssthresh:
                                     self.cwnd += 1.0
@@ -144,6 +152,7 @@ class rdt:
                                     self.cwnd += 1.0 / self.cwnd
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
+                            self.timer = time.time()
                     else:
                         if DEBUG: print(f'receive  ack={ack}, finack')
                         self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
