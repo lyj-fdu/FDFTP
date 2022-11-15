@@ -104,7 +104,7 @@ def main():
             # 3 handshakes
             connection_port, client_addr = welcome_socket.accept()
             # connection socket works
-            connection = Thread(target=communicate, args=(connection_port, client_addr))
+            connection = threading.Thread(target=communicate, args=(connection_port, client_addr))
             connection.start()
     except Exception as e:
         print(str(e))

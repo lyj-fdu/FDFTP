@@ -1,11 +1,11 @@
 from config import *
 from FDFTPsocket import *
-import struct
-import math
-import os
 import socket
-from threading import Thread, Lock
-from time import *
+import struct
+import os
+import time
+import math
+import threading
 
 class rdt:
     
@@ -14,13 +14,13 @@ class rdt:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.temp_filepath = ''
     
-    def make_pkt(self, length=PACKET_SIZE, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
+    def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
         '''make transport layer packet'''
-        return struct.pack('5i' + str(PACKET_SIZE) + 's', length, seq, ack, isfin, issyn, data)
+        return struct.pack('5i' + str(MSS) + 's', length, seq, ack, isfin, issyn, data)
 
     def extract(self, rcvpkt):
         '''extract transport layer packet'''
-        return struct.unpack('5i' + str(PACKET_SIZE) + 's', rcvpkt)
+        return struct.unpack('5i' + str(MSS) + 's', rcvpkt)
     
     def __rdt_send(self, size):
         '''application layer to transport layer'''
@@ -40,6 +40,7 @@ class rdt:
     def __deliver_data(self):
         '''transport layer to application layer'''
         self.file.write(self.deliver_data)
+        self.file.flush()
         
     def __send_msg_pkt(self, addr):
         '''sender: send packets inside cwnd, GBN if timeout'''
@@ -55,12 +56,12 @@ class rdt:
                     send_now = True # fast retransmit
                     if DEBUG: print(f'FR')
                 # timeout
-                if CONG_TIMEOUT < (time() - self.timer):
+                if CONG_TIMEOUT < (time.time() - self.timer):
                     self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                     self.cwnd = 1.0
                     self.nextseqnum = self.send_base
                     send_now = True # retransmit
-                    self.timer = time()
+                    self.timer = time.time()
                     if DEBUG: print(f'timeout  ssthresh={self.ssthresh}')
                 # send packet
                 if self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + int(self.cwnd) and self.nextseqnum <= self.PACKETS_NUM:
@@ -69,7 +70,7 @@ class rdt:
                         if self.nextseqnum == self.PACKETS_NUM:
                             self.send_buffer.append(self.__rdt_send(self.LAST_PACKET_SIZE))
                         else:
-                            self.send_buffer.append(self.__rdt_send(PACKET_SIZE))
+                            self.send_buffer.append(self.__rdt_send(MSS))
                         self.bufferedseqnum = self.nextseqnum
                         send_now = True # new pkt
                     # send packet
@@ -119,10 +120,10 @@ class rdt:
                                 self.cwnd = self.ssthresh + 3.0
                                 self.nextseqnum = self.send_base
                                 self.fast_retransmit = True
-                                self.timer = time()
+                                self.timer = time.time()
                             if self.dulplicate_ack > 3:
-                                self.cwnd += 1.0
-                                self.timer = time()
+                                self.cwnd += 1.0 / self.cwnd
+                                self.timer = time.time()
                         # recive confirming ack
                         if self.send_base <= ack:
                             if self.dulplicate_ack >= 3:
@@ -132,7 +133,7 @@ class rdt:
                             self.send_base = self.send_base + gap
                             self.nextseqnum = self.send_base
                             del self.send_buffer[0:gap]
-                            self.timer = time()
+                            self.timer = time.time()
                             for i in range(gap):
                                 if self.cwnd < self.ssthresh:
                                     self.cwnd += 1.0
@@ -194,7 +195,6 @@ class rdt:
                     if length != 0: # length == 0 means download empty file
                         self.deliver_data = self.deliver_data + data[:length]
                         self.__deliver_data()
-                        self.file.flush()
                         self.deliver_data = bytes()
                         if DEBUG: print('flush remaining pkts')
                     ack = self.expectedseqnum
@@ -216,14 +216,14 @@ class rdt:
         if os.path.isfile(source_path): # open file
             self.file = open(source_path, 'rb')
             self.FILE_SIZE = os.path.getsize(source_path)
-            self.PACKETS_NUM = self.FILE_SIZE // PACKET_SIZE + 1
-            self.LAST_PACKET_SIZE = self.FILE_SIZE - (self.PACKETS_NUM - 1) * PACKET_SIZE
+            self.PACKETS_NUM = self.FILE_SIZE // MSS + 1
+            self.LAST_PACKET_SIZE = self.FILE_SIZE - (self.PACKETS_NUM - 1) * MSS
         else: # empty file
             self.PACKETS_NUM = 1
             self.LAST_PACKET_SIZE = 0
         # send msg
         self.send_buffer = []
-        self.timer = time()
+        self.timer = time.time()
         self.send_base = 1
         self.nextseqnum = 1
         self.bufferedseqnum = 0
@@ -236,22 +236,22 @@ class rdt:
         # semaphores and lock between 2 thead
         self.fast_retransmit = False # sem
         self.disconnect = False # sem
-        self.lock = Lock() # lock
+        self.lock = threading.Lock() # lock
         # send pkts and receive acks
         self.use_task = False
         if os.path.isfile(source_path) and not is_temp_file: # use task only if transfer valid file
-            beg_time = time()
+            beg_time = time.time()
             self.use_task = True
             self.task = Task(source_path)
-        send = Thread(target=self.__send_msg_pkt, args=(addr, ))
-        receive = Thread(target=self.__receive_ack_pkt)
+        send = threading.Thread(target=self.__send_msg_pkt, args=(addr, ))
+        receive = threading.Thread(target=self.__receive_ack_pkt)
         send.start()
         receive.start()
         send.join()
         receive.join()
         if self.use_task:
             self.task.finish()
-            end_time = time()
+            end_time = time.time()
             transfer_time = end_time - beg_time
             file_size_KB = self.FILE_SIZE / math.pow(2, 10)
             transfer_rate = file_size_KB / transfer_time
@@ -267,7 +267,6 @@ class rdt:
         # close file if necessary
         if os.path.isfile(source_path): 
             self.file.close()
-        # calculate loss pkt rate
     
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''

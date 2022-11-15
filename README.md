@@ -135,7 +135,7 @@
           int ack; // 确认号
           int isfin; // 结束传输(1)
           int issyn; // 握手连接(1)
-          char[PACKET_SIZE] data; // 负载
+          char[MSS] data; // 负载
       } packet;
       ```
 
@@ -166,7 +166,7 @@
 - 校验和？
 - 加分项？
 
-# 3 第二次迭代（2022.11.14-2022.11.15)
+# 3 第二次迭代（2022.11.14 - 2022.11.15)
 
 ## 3.1 功能更新
 
@@ -174,17 +174,27 @@
 - 由TCP-Tahoe变为TCP-Reno, 增加了快速重传/快速恢复机制FR/FR, 利用threading库的Lock解决并发问题
 - 传输方面导入了助教的Task模块进行性能测试
 
-## 3.2 运行
+## 3.2 测试
 
-运行效果如下
+- 环境
 
-- 客户端
+  - sudo tc qdisc add dev ens33 root netem delay 10ms 1ms 10% loss 5%
+  - 客户端向服务器传送一个约38MB的pdf文件
+
+- 运行截图
 
   ![v2-client](img/v2-client.png)
 
-- 服务器
+- 由md5sum得知文件传送无误, 且其性能参数提取如下
 
-  ![v2-server](img/v2-server.png)
+  ``` plain
+  goodput:85.99851664620239Mbps
+  score:78.2454449295223
+  size=38533.4755859375Mb
+  time=458.8253128528595s
+  rate=83.98288958023286Mbps
+  pkt_loss_rate=7.7591473762813115%
+  ```
 
 ## 3.3 TODO
 
