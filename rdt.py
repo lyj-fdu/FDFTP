@@ -122,7 +122,9 @@ class rdt:
                                 self.fast_retransmit = True
                                 self.timer = time.time()
                             if self.dulplicate_ack > 3:
-                                self.cwnd += 1.0 / self.cwnd
+                                self.cwnd += 1.0
+                                if self.cwnd > RCV_BUFSIZE: 
+                                    self.cwnd = float(RCV_BUFSIZE)
                                 self.timer = time.time()
                         # recive confirming ack
                         if self.send_base <= ack:
@@ -139,6 +141,8 @@ class rdt:
                                     self.cwnd += 1.0
                                 else:
                                     self.cwnd += 1.0 / self.cwnd
+                                if self.cwnd > RCV_BUFSIZE: 
+                                    self.cwnd = float(RCV_BUFSIZE)
                     else:
                         if DEBUG: print(f'receive  ack={ack}, finack')
                         self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
