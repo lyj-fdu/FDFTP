@@ -30,7 +30,7 @@ class Client(rdt):
         '''rdt send filename, then download or upload file'''
         # optimize judging uploading non-existing file here
         if op == 'fsnd' and os.path.isfile('client/' + filename) == False:
-            print('file not exists')
+            print(f'file `client/{filename}` not exists or empty')
             return
         # upload or download file
         self.disconnect = False
@@ -55,6 +55,8 @@ class Client(rdt):
                     end = time()
                     fsize = os.path.getsize(dest_path)
                     print(f'ok, download {fsize}B, rate={8*fsize/(end-beg)}bps')
+                else:
+                    print(f'file `server/{filename}` not exists or empty')
             else: # upload file
                 goodput = self.rdt_upload_file(source_path, self.server_addr)
                 if i == 1:

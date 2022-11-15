@@ -264,7 +264,7 @@ class rdt:
         # close file
         self.file.close()
         if os.path.getsize(dest_path) == 0:
-            print('file not exists')
+            filename = dest_path[dest_path.find('/')+1:]
             os.remove(dest_path)
 
     def close(self):
