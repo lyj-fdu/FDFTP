@@ -3,7 +3,7 @@ import struct
 import math
 import os
 import socket
-from threading import Thread
+from threading import Thread, Lock
 from time import *
 
 class rdt:
@@ -43,68 +43,57 @@ class rdt:
     def __send_msg_pkt(self, addr):
         '''sender: send packets inside cwnd, GBN if timeout'''
         while not self.disconnect:
-            send_now = False
-            
-            # new send base
-            gap = self.new_send_base - self.send_base
-            if gap > 0:
-                del self.send_buffer[0:gap]
-                self.send_base = self.send_base + gap
-                self.nextseqnum = self.send_base
-            # new timer
-            if self.timer < self.new_timer:
-                self.timer = self.new_timer
-            # fast retransmit
-            if self.fast_retransmit:
-                self.nextseqnum = self.send_base
-                self.fast_retransmit = False
-                send_now = True # fast retransmit
-                if DEBUG: print(f'FR')
-            
-            # send all packets
-            if self.PACKETS_NUM < self.send_base: 
-                break
-            # timeout
-            if CONG_TIMEOUT < (time() - self.timer):
-                self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
-                self.cwnd = 1.0
-                self.nextseqnum = self.send_base
-                send_now = True # retransmit
-                self.timer = time()
-                if DEBUG: print(f'timeout  ssthresh={self.ssthresh}')
-            # send packet
-            if self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + int(self.cwnd) and self.nextseqnum <= self.PACKETS_NUM:
-                # buffer payload
-                if self.bufferedseqnum < self.nextseqnum:
-                    if self.nextseqnum == self.PACKETS_NUM:
-                        self.send_buffer.append(self.__rdt_send(self.LAST_PACKET_SIZE))
-                    else:
-                        self.send_buffer.append(self.__rdt_send(PACKET_SIZE))
-                    self.bufferedseqnum = self.nextseqnum
-                    send_now = True # new pkt
+            with self.lock:
+                send_now = False
+                # send all packets
+                if self.PACKETS_NUM < self.send_base: 
+                    break
+                # fast retransmit
+                if self.fast_retransmit:
+                    self.fast_retransmit = False
+                    send_now = True # fast retransmit
+                    if DEBUG: print(f'FR')
+                # timeout
+                if CONG_TIMEOUT < (time() - self.timer):
+                    self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
+                    self.cwnd = 1.0
+                    self.nextseqnum = self.send_base
+                    send_now = True # retransmit
+                    self.timer = time()
+                    if DEBUG: print(f'timeout  ssthresh={self.ssthresh}')
                 # send packet
-                if send_now:
-                    payload = self.send_buffer[self.nextseqnum - self.send_base]
-                    if self.nextseqnum == self.PACKETS_NUM:
-                        sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
-                        self.udt_send(sndpkt, addr)
-                        if self.nextseqnum > self.sended:
-                            if DEBUG: print(f'send     seq={self.nextseqnum}, fin')
-                            self.sended += 1
+                if self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + int(self.cwnd) and self.nextseqnum <= self.PACKETS_NUM:
+                    # buffer payload
+                    if self.bufferedseqnum < self.nextseqnum:
+                        if self.nextseqnum == self.PACKETS_NUM:
+                            self.send_buffer.append(self.__rdt_send(self.LAST_PACKET_SIZE))
                         else:
-                            if DEBUG: print(f'resend   seq={self.nextseqnum}, fin')
-                            self.resend += 1
-                    else:
-                        sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
-                        self.udt_send(sndpkt, addr)
-                        if self.nextseqnum > self.sended:
-                            if DEBUG: print(f'send     seq={self.nextseqnum}, cwnd={self.cwnd}')
-                            self.sended += 1
+                            self.send_buffer.append(self.__rdt_send(PACKET_SIZE))
+                        self.bufferedseqnum = self.nextseqnum
+                        send_now = True # new pkt
+                    # send packet
+                    if send_now:
+                        payload = self.send_buffer[self.nextseqnum - self.send_base]
+                        if self.nextseqnum == self.PACKETS_NUM:
+                            sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
+                            self.udt_send(sndpkt, addr)
+                            if self.nextseqnum > self.sended:
+                                if DEBUG: print(f'send     seq={self.nextseqnum}, fin')
+                                self.sended += 1
+                            else:
+                                if DEBUG: print(f'resend   seq={self.nextseqnum}, fin')
+                                self.resend += 1
                         else:
-                            if DEBUG: print(f'resend   seq={self.nextseqnum}, cwnd={self.cwnd}')
-                            self.resend += 1
-                # move next
-                self.nextseqnum += 1
+                            sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
+                            self.udt_send(sndpkt, addr)
+                            if self.nextseqnum > self.sended:
+                                if DEBUG: print(f'send     seq={self.nextseqnum}, cwnd={self.cwnd}')
+                                self.sended += 1
+                            else:
+                                if DEBUG: print(f'resend   seq={self.nextseqnum}, cwnd={self.cwnd}')
+                                self.resend += 1
+                    # move next
+                    self.nextseqnum += 1
 
     def __receive_ack_pkt(self):
         '''sender: receive acks, shutdown if receive isfin'''
@@ -112,36 +101,40 @@ class rdt:
             while True:
                 rcvpkt, addr = self.rdt_rcv()
                 length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
-                if isfin == 0:
-                    if DEBUG: print(f'receive  ack={ack}')
-                    # fast retransmit
-                    if self.new_send_base == ack + 1:
-                        self.dulplicate_ack += 1
-                        if self.dulplicate_ack == 3:
-                            self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
-                            self.cwnd = self.ssthresh + 3.0
-                            self.fast_retransmit = True
-                            self.new_timer = time()
-                        if self.dulplicate_ack > 3:
-                            self.cwnd += 1.0
-                            self.new_timer = time()
-                    # recive confirming ack
-                    if self.new_send_base <= ack:
-                        if self.dulplicate_ack >= 3:
-                            self.cwnd = self.ssthresh
-                        self.dulplicate_ack = 1
-                        gap = ack - self.new_send_base + 1
-                        self.new_send_base = self.new_send_base + gap
-                        self.new_timer = time()
-                        for i in range(gap):
-                            if self.cwnd < self.ssthresh:
+                with self.lock:
+                    if isfin == 0:
+                        if DEBUG: print(f'receive  ack={ack}')
+                        # fast retransmit
+                        if self.send_base == ack + 1:
+                            self.dulplicate_ack += 1
+                            if self.dulplicate_ack == 3:
+                                self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
+                                self.cwnd = self.ssthresh + 3.0
+                                self.nextseqnum = self.send_base
+                                self.fast_retransmit = True
+                                self.timer = time()
+                            if self.dulplicate_ack > 3:
                                 self.cwnd += 1.0
-                            else:
-                                self.cwnd += 1.0 / self.cwnd
-                else:
-                    if DEBUG: print(f'receive  ack={ack}, finack')
-                    self.new_send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
-                    break
+                                self.timer = time()
+                        # recive confirming ack
+                        if self.send_base <= ack:
+                            if self.dulplicate_ack >= 3:
+                                self.cwnd = self.ssthresh
+                            self.dulplicate_ack = 1
+                            gap = ack - self.send_base + 1
+                            self.send_base = self.send_base + gap
+                            self.nextseqnum = self.send_base
+                            del self.send_buffer[0:gap]
+                            self.timer = time()
+                            for i in range(gap):
+                                if self.cwnd < self.ssthresh:
+                                    self.cwnd += 1.0
+                                else:
+                                    self.cwnd += 1.0 / self.cwnd
+                    else:
+                        if DEBUG: print(f'receive  ack={ack}, finack')
+                        self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
+                        break
         except: # hint other thread to end
             self.disconnect = True
             
@@ -225,9 +218,7 @@ class rdt:
             self.LAST_PACKET_SIZE = 0
         self.send_buffer = []
         self.timer = time()
-        self.new_timer = time()
         self.send_base = 1
-        self.new_send_base = 1
         self.nextseqnum = 1
         self.bufferedseqnum = 0
         self.sended = 0
@@ -235,8 +226,9 @@ class rdt:
         self.ssthresh = CONG_DEFALUT_SSTHRESH
         self.cwnd = 1.0
         self.dulplicate_ack = 1
-        self.fast_retransmit = False
-        self.disconnect = False
+        self.fast_retransmit = False # signal
+        self.disconnect = False # signal
+        self.lock = Lock() # lock
         # send pkts and receive acks
         send = Thread(target=self.__send_msg_pkt, args=(addr, ))
         receive = Thread(target=self.__receive_ack_pkt)
