@@ -1,4 +1,5 @@
 from config import *
+from FDFTPsocket import *
 import struct
 import math
 import os
@@ -76,7 +77,10 @@ class rdt:
                         payload = self.send_buffer[self.nextseqnum - self.send_base]
                         if self.nextseqnum == self.PACKETS_NUM:
                             sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
-                            self.udt_send(sndpkt, addr)
+                            if self.use_task:
+                                self.task.sendto(self.socket, sndpkt, addr)
+                            else:
+                                self.udt_send(sndpkt, addr)
                             if self.nextseqnum > self.sended:
                                 if DEBUG: print(f'send     seq={self.nextseqnum}, fin')
                                 self.sended += 1
@@ -85,7 +89,10 @@ class rdt:
                                 self.resend += 1
                         else:
                             sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
-                            self.udt_send(sndpkt, addr)
+                            if self.use_task:
+                                self.task.sendto(self.socket, sndpkt, addr)
+                            else:
+                                self.udt_send(sndpkt, addr)
                             if self.nextseqnum > self.sended:
                                 if DEBUG: print(f'send     seq={self.nextseqnum}, cwnd={self.cwnd}')
                                 self.sended += 1
@@ -203,7 +210,7 @@ class rdt:
                     if DEBUG: print(f'send     ack={ack}, finack')
                     break
                 
-    def rdt_upload_file(self, source_path, addr):
+    def rdt_upload_file(self, source_path, addr, is_temp_file=False):
         '''client or server upload file'''
         # file
         if os.path.isfile(source_path): # open file
@@ -231,20 +238,36 @@ class rdt:
         self.disconnect = False # sem
         self.lock = Lock() # lock
         # send pkts and receive acks
+        self.use_task = False
+        if os.path.isfile(source_path) and not is_temp_file: # use task only if transfer valid file
+            beg_time = time()
+            self.use_task = True
+            self.task = Task(source_path)
         send = Thread(target=self.__send_msg_pkt, args=(addr, ))
         receive = Thread(target=self.__receive_ack_pkt)
         send.start()
         receive.start()
         send.join()
         receive.join()
+        if self.use_task:
+            self.task.finish()
+            end_time = time()
+            transfer_time = end_time - beg_time
+            file_size_KB = self.FILE_SIZE / math.pow(2, 10)
+            transfer_rate = file_size_KB / transfer_time
+            if self.resend + self.sended != 0:
+                pkt_loss_rate = self.resend / (self.resend + self.sended) * 100
+            else:
+                pkt_loss_rate = 0
+            if PERFORMANCE: 
+                print(f'size={file_size_KB}KB')
+                print(f'time={transfer_time}s')
+                print(f'rate={transfer_rate}KB/s')
+                print(f'pkt_loss_rate={pkt_loss_rate}%')
         # close file if necessary
         if os.path.isfile(source_path): 
             self.file.close()
         # calculate loss pkt rate
-        if self.resend + self.sended != 0:
-            return self.sended / (self.resend + self.sended)
-        else:
-            return 0
     
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''

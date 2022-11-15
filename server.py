@@ -69,11 +69,14 @@ class ConnectionServer(Server):
                 else: source_path = 'server/' + filename
                 self.file.close()
             # upload or download file
-            if i == 1 and op == 'frcv': # upload file
-                self.rdt_upload_file(source_path, self.client_addr)
-            else: # download file
-                if i == 0: self.socket.settimeout(CLIENT_TIMEOUT) # detect offline of client
+            if i == 0: # tempfile
+                self.socket.settimeout(CLIENT_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)
+            else: # file
+                if op == 'frcv': # upload file
+                    self.rdt_upload_file(source_path, self.client_addr)
+                else: # download file
+                    self.rdt_download_file(dest_path, self.client_addr)
 
 def communicate(connection_port, client_addr):
     '''connection socket thread'''

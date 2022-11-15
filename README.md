@@ -7,9 +7,9 @@
 ## 1.2 基本要求
 
 - 基于Python3.6
-- 编写server程序和client程序，client可以通过命令行的命令向server上传和下载大文件，server可以同时支持多个client。
-- 自选算法解决丢包，超时，乱序等问题
-- 自选算法进行拥塞控制
+- 编写server程序和client程序，client可以通过命令行的命令向server上传和下载大文件，server可以同时支持多个client
+- 从课程内容中自选算法解决丢包，超时，乱序等问题
+- 从课程内容中自选算法进行拥塞控制验证文件完整性
 - 记录平均上传下载速度，以及丢包率
 
 ## 1.3 加分项
@@ -45,11 +45,15 @@
 - 在模拟环境下的性能测试
 - 使用手册……
 
-# 2 2022.11.11 - 2022.11.13
+# 2 第一次迭代（2022.11.11 - 2022.11.13）
 
 ## 2.1 功能
 
-​	server可以并行连接多个client上传下载文件, 保证可靠传输并带有拥塞控制
+- server可以并行连接多个client上传下载文件
+- 3次握手建立连接
+- GBN流水线可靠传输
+- TCP-Tahoe拥塞控制(不带快速重传FR)
+- 超时断开连接
 
 ## 2.2 运行
 
@@ -65,11 +69,11 @@
 
   - 客户端
 
-    ![client](img/client.png)
+    ![client](img/v1-client.png)
 
   - 服务器
 
-    ![server](img/server.png)
+    ![server](img/v1-server.png)
 
 ## 2.3 设计
 
@@ -144,14 +148,27 @@
 - 校验和？
 - 加分项？
 
-# 3 2022.11.14
+# 3 第二次迭代（2022.11.14-2022.11.15)
 
-## 3.1 更新
+## 3.1 功能更新
 
-- 由GBN变为TCP, 但方便起见, ack仍为GBN的ack, seq仍为包号
-- 由TCP-Tahoe变为TCP-Reno, 增加了FR/FR
+- 由GBN变为TCP, 但方便起见, 保留一些GBN的特性(ack仍为GBN的ack, seq仍为包号)
+- 由TCP-Tahoe变为TCP-Reno, 增加了快速重传/快速恢复机制FR/FR, 利用threading库的Lock解决并发问题
+- 传输方面导入了助教的Task模块进行性能测试
 
-## 3.2 TODO
+## 3.2 运行
+
+运行效果如下
+
+- 客户端
+
+  ![v2-client](img/v2-client.png)
+
+- 服务器
+
+  ![v2-server](img/v2-server.png)
+
+## 3.3 TODO
 
 - 写一下算法细节
 - 校验和？

@@ -20,4 +20,5 @@ CONG_DEFALUT_SSTHRESH = 20.0 # if network is bad, set it small
 RCV_BUFSIZE = 66 # should be at least double the size of ssthresh
 
 # debug
-DEBUG = True # print some info
+DEBUG = False # print some info
+PERFORMANCE = True # print performance such as rate and pkt_loss_rate

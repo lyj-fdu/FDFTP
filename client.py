@@ -48,21 +48,18 @@ class Client(rdt):
             if self.disconnect:
                 raise Exception(f'server is closed or {CLIENT_TIMEOUT}s timeout\nbye')
             # upload or download file
-            if i == 1: beg = time()
-            if i == 1 and op == 'frcv': # download file
-                self.rdt_download_file(dest_path, self.server_addr)
-                if os.path.isfile(dest_path):
-                    end = time()
-                    fsize = os.path.getsize(dest_path)
-                    print(f'ok, download {fsize}B, rate={8*fsize/(end-beg)}bps')
-                else:
-                    print(f'file `server/{filename}` not exists or empty')
-            else: # upload file
-                goodput = self.rdt_upload_file(source_path, self.server_addr)
-                if i == 1:
-                    end = time()
-                    fsize = os.path.getsize(source_path)
-                    print(f'ok, upload {fsize}B, rate={8*fsize/(end-beg)}bps, goodput={goodput*100}%')
+            if i == 0: # tempfile
+                self.rdt_upload_file(source_path, self.server_addr, True)
+            else: # file
+                if op == 'frcv': # download file
+                    self.rdt_download_file(dest_path, self.server_addr)
+                    if os.path.isfile(dest_path):
+                        print(f'download file `server/{filename}` to client folder')
+                    else:
+                        print(f'file `server/{filename}` not exists or empty')
+                else: # upload file
+                    self.rdt_upload_file(source_path, self.server_addr)
+                    print(f'upload file `{source_path}` to server folder')
 
 def main():
     # client socket
