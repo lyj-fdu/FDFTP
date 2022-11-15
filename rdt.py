@@ -260,9 +260,9 @@ class rdt:
             else:
                 pkt_loss_rate = 0
             if PERFORMANCE: 
-                print(f'size={file_size_KB}KB')
+                print(f'size={file_size_KB}Mb')
                 print(f'time={transfer_time}s')
-                print(f'rate={transfer_rate}KB/s')
+                print(f'rate={transfer_rate}Mbps')
                 print(f'pkt_loss_rate={pkt_loss_rate}%')
         # close file if necessary
         if os.path.isfile(source_path): 
