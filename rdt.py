@@ -35,7 +35,7 @@ class rdt:
 
     def rdt_rcv(self):
         '''network layer to transport layer'''
-        return self.socket.recvfrom(BUFFER_SIZE)
+        return self.socket.recvfrom(BUFSIZE)
     
     def __deliver_data(self):
         '''transport layer to application layer'''
@@ -123,8 +123,8 @@ class rdt:
                                 self.timer = time.time()
                             if self.dulplicate_ack > 3:
                                 self.cwnd += 1.0
-                                if self.cwnd > RCV_BUFSIZE: 
-                                    self.cwnd = float(RCV_BUFSIZE)
+                                if self.cwnd > RWND: 
+                                    self.cwnd = float(RWND)
                                 self.timer = time.time()
                         # recive confirming ack
                         if self.send_base <= ack:
@@ -141,8 +141,8 @@ class rdt:
                                     self.cwnd += 1.0
                                 else:
                                     self.cwnd += 1.0 / self.cwnd
-                                if self.cwnd > RCV_BUFSIZE: 
-                                    self.cwnd = float(RCV_BUFSIZE)
+                                if self.cwnd > RWND: 
+                                    self.cwnd = float(RWND)
                     else:
                         if DEBUG: print(f'receive  ack={ack}, finack')
                         self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
@@ -179,7 +179,7 @@ class rdt:
                         self.deliver_data = bytes()
                         if DEBUG: print(f'flush {deliver_num} pkts')
                         self.expectedseqnum += deliver_num
-                    elif seq < self.expectedseqnum + RCV_BUFSIZE:
+                    elif seq < self.expectedseqnum + RWND:
                         # buffer valid
                         if not self.receive_acked[seq - self.expectedseqnum]:
                             self.receive_acked[seq - self.expectedseqnum] = True
@@ -283,8 +283,8 @@ class rdt:
         # open file and receive
         self.file = open(dest_path, 'wb')
         self.expectedseqnum = 1
-        self.receive_buffer = [None] * RCV_BUFSIZE
-        self.receive_acked = [False] * RCV_BUFSIZE
+        self.receive_buffer = [None] * RWND
+        self.receive_acked = [False] * RWND
         self.deliver_data = bytes()
         self.__receive_msg_pkt_and_send_ack_pkt(addr)
         # close file
