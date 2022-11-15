@@ -13,13 +13,13 @@ BUFSIZE = 2048
 
 '''client'''
 # client ip
-# CLIENT_IP = 'localhost'
-CLIENT_IP = '10.219.150.142'
+CLIENT_IP = 'localhost'
+# CLIENT_IP = '10.219.150.142'
 
 '''server'''
 # server ip
-# SERVER_IP = 'localhost'
-SERVER_IP = '10.219.226.57'
+SERVER_IP = 'localhost'
+# SERVER_IP = '10.219.226.57'
 # welcome socket port
 # connection socket will increase from this
 # it's set casually on available port in the computer

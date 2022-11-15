@@ -75,23 +75,12 @@
 
 ## 2.2 运行
 
-- 必须首先运行server, server运行的命令为`python server.py`
-
-- 接下来可以开启多个client, 每个client运行的命令为`python client.py`
-
-- 在client的通过命令行可以上传或下载位于指定文件夹下的文件, 示例如下:
+- 必须先配置好`config.py`中服务器和客户端的端口号
+- 首先运行`server.py`, 运行的命令为`python server.py`
+- 接下来可以开启多个`client.py`, 每个client运行的命令为`python client.py`
+- 在client的命令行可以上传或下载位于指定文件夹下的文件, 示例如下:
   - 上传位于文件夹`client/`下的文件`sleep.png`的命令为`fsnd sleep.png`
   - 下载位于文件夹`server/`下的文件`sleep.png`的命令为`frcv sleep.png`
-
-- 运行效果如下
-
-  - 客户端
-
-    ![client](img/v1-client.png)
-
-  - 服务器
-
-    ![server](img/v1-server.png)
 
 ## 2.3 设计
 
@@ -159,12 +148,27 @@
 
     - client记录每个文件的平均上传下载速度, 以及上传的丢包率
     - 由于丢包率只能由发送方测量, 所以client若想得知下载的丢包率, 只需在服务端设置, 由于对称, 所以认为没必要
-## 2.4 TODO
+## 2.4 性能
 
-- 升级GBN与TCP-Tahoe？
-- 写一下算法细节
-- 校验和？
-- 加分项？
+- 环境
+  - sudo tc qdisc add dev ens33 root netem delay 10ms 1ms 10% loss 5%
+  - 客户端向服务器传送一个约0.5MB的png文件（传得太慢了，就测这么小……）
+
+- 运行截图
+
+  ![v1-client](img/v1-client.png)
+
+- 由md5sum得知文件传送无误, 且其性能参数提取如下
+
+  ```plain
+  goodput:5.624198295215536Mbps
+  score:3.054778348190921
+  ```
+
+## 2.5 TODO
+
+- 升级GBN
+- 升级TCP-Tahoe
 
 # 3 第二次迭代（2022.11.14 - 2022.11.15)
 
@@ -172,7 +176,7 @@
 
 - 由GBN变为TCP, 但方便起见, 保留一些GBN的特性(ack仍为GBN的ack, seq仍为包号)
 - 由TCP-Tahoe变为TCP-Reno, 增加了快速重传/快速恢复机制FR/FR, 利用threading库的Lock解决并发问题
-- 传输方面导入了助教的Task模块进行性能测试
+- 导入了助教的Task模块进行性能测试
 
 ## 3.2 测试
 
@@ -190,17 +194,15 @@
   ``` plain
   goodput:85.99851664620239Mbps
   score:78.2454449295223
-  size=38533.4755859375Mb
-  time=458.8253128528595s
-  rate=83.98288958023286Mbps
-  pkt_loss_rate=7.7591473762813115%
   ```
+- 对比第一次迭代，综合性能提升了20倍左右
 
 ## 3.3 TODO
 
+- 升级TCP-Reno
+- 加分项？（校验和？安全？）
 - 写一下算法细节
 - 校验和？
-- 加分项？
 
 # 附
 
