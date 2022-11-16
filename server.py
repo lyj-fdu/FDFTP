@@ -93,7 +93,7 @@ def communicate(connection_port, client_addr):
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
     except TimeoutError:
-        print(f'>>> {client_addr} disconnected due to {CLIENT_TIMEOUT}s timeout')
+        print(f'>>> {client_addr} {CLIENT_TIMEOUT}s timeout')
     except Exception as e:
         print(str(e))
     # close connection socket
