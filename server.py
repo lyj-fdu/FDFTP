@@ -63,7 +63,6 @@ class ConnectionServer(Server):
                 self.file.close()
             # upload or download file
             if i == 0: # tempfile
-                self.socket.settimeout(CLIENT_TIMEOUT) # detect offline of client
                 self.rdt_download_file(dest_path, self.client_addr)
             else: # file
                 if op == 'frcv': # upload file
@@ -81,8 +80,6 @@ def communicate(connection_port, client_addr):
     try:
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
-    except TimeoutError:
-        print(f'>>> {client_addr} {CLIENT_TIMEOUT}s timeout')
     except Exception as e:
         print(str(e))
     # close connection socket

@@ -40,7 +40,7 @@ class Client(rdt):
                 else: dest_path = 'client/' + filename[filename.rfind('/')+1:]
             # check if disconnected
             if self.disconnect:
-                raise Exception(f'server is closed or {CLIENT_TIMEOUT}s timeout\nbye')
+                raise Exception(f'server is closed\nbye')
             # upload or download file
             if i == 0: # tempfile
                 self.rdt_upload_file(source_path, self.server_addr, True)
@@ -58,7 +58,7 @@ class Client(rdt):
     def shutdown(self):
         # check if already disconnected
         if self.disconnect:
-            raise Exception(f'server is closed or {CLIENT_TIMEOUT}s timeout\nbye')
+            raise Exception(f'server is closed\nbye')
         # send disconnect file
         self.file = open(self.temp_filepath, 'w')
         self.file.write('shutdown')

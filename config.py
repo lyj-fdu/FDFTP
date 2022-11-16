@@ -24,10 +24,6 @@ SERVER_IP = '192.168.50.10'
 # connection socket will increase from this
 # it's set casually on available port in the computer
 SERVER_PORT = 8888
-# disconnect time
-# if client has no movement in CLIENT_TIMEOUT, disconnect
-# it's set casually
-CLIENT_TIMEOUT = 666
 
 '''sender'''
 # states of sender
