@@ -318,7 +318,7 @@ class rdt:
         # remove file if necessary
         if os.path.getsize(dest_path) == 0:
             os.remove(dest_path)
-
+        
     def close(self):
         '''close socket and clear tempfile'''
         self.socket.close()

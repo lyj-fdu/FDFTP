@@ -12,32 +12,21 @@ class WelcomeServer(Server):
         '''create socket and connection_port'''
         Server.__init__(self, port)
         self.connection_port = int(SERVER_PORT) + 1
+        self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
 
     def accept(self):
         '''3 handshakes and prepare connection_socket'''
-        # handshake with client socket
         while True:
             # handshake 1
             rcvpkt, client_addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
-            if not (issyn == 1 and seq == 1): 
-                sndpkt = self.make_pkt(issyn=0)
-                self.udt_send(sndpkt, client_addr)
-                continue
-            # handshake 2
-            self.client_addr = client_addr
-            connection_port = str(self.connection_port)
-            sndpkt = self.make_pkt(length=len(connection_port), issyn=1, data=connection_port.encode())
-            self.udt_send(sndpkt, client_addr)
-            # handshake 3
-            re_rcvpkt, re_addr = self.rdt_rcv()
-            re_length, re_seq, re_ack, re_isfin, re_issyn, re_data = self.extract(re_rcvpkt)
-            if not (re_issyn == 1 and re_seq == 2 and client_addr == re_addr):
-                sndpkt = self.make_pkt(issyn=0)
-                self.udt_send(sndpkt, re_addr)
-                continue
-            break
-        # prepare connection socket
+            # handshake 2 & 3
+            if issyn == 1:
+                self.file = open(self.temp_filepath, 'w')
+                self.file.write(f'{self.connection_port}')
+                self.file.close()
+                self.rdt_upload_file(self.temp_filepath, client_addr, True)
+                break
         self.connection_port += 1
         return (self.connection_port - 1, client_addr)
 
