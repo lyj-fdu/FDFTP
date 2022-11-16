@@ -203,7 +203,7 @@
 
 ### 3.2.1 功能更新
 
-- TCP-Reno变为TCP-NewReno, 区分partial ack和complete ack
+- TCP-Reno变为TCP-NewReno, 区分partial ack和complete ack,  利用状态机解决细节问题
 
 ### 3.1.2 测试
 
@@ -219,11 +219,11 @@
 - 由md5sum得知文件传送无误, 且其性能参数提取如下
 
   ```plain
-  goodput:310.61751367589835Mbps
-  score:224.03822913881967
+  goodput:295.6303614028556Mbps
+  score:219.17902256557463
   ```
 
-- 对比第一次迭代，综合性能提升了70倍左右
+- 对比第一次迭代，综合性能提升了60倍左右
 
 ## 3.3 TODO
 

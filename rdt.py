@@ -46,21 +46,17 @@ class rdt:
         '''sender: send packets inside cwnd, GBN if timeout'''
         while not self.disconnect:
             with self.lock:
-                send_now = False
                 # send all packets
                 if self.PACKETS_NUM < self.send_base: 
                     break
-                # fast retransmit
-                if self.fast_retransmit:
-                    self.fast_retransmit = False
-                    send_now = True # fast retransmit
-                    if DEBUG: print(f'FR')
                 # timeout
                 if CONG_TIMEOUT < (time.time() - self.timer):
+                    self.dulplicate_ack = 0
                     self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                     self.cwnd = 1.0
+                    self.send_state = SS
                     self.nextseqnum = self.send_base
-                    send_now = True # retransmit
+                    self.send_now = True # retransmit
                     self.timer = time.time()
                     if DEBUG: print(f'timeout  ssthresh={self.ssthresh}')
                 # send packet
@@ -72,9 +68,9 @@ class rdt:
                         else:
                             self.send_buffer.append(self.__rdt_send(MSS))
                         self.bufferedseqnum = self.nextseqnum
-                        send_now = True # new pkt
+                        self.send_now = True # new pkt
                     # send packet
-                    if send_now:
+                    if self.send_now:
                         payload = self.send_buffer[self.nextseqnum - self.send_base]
                         if self.nextseqnum == self.PACKETS_NUM:
                             sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
@@ -100,6 +96,7 @@ class rdt:
                             else:
                                 if DEBUG: print(f'resend   seq={self.nextseqnum}, cwnd={self.cwnd}')
                                 self.resend += 1
+                        self.send_now = False # cancel next
                     # move next
                     self.nextseqnum += 1
 
@@ -112,44 +109,47 @@ class rdt:
                 with self.lock:
                     if isfin == 0:
                         if DEBUG: print(f'receive  ack={ack}')
-                        # fast retransmit
+                        # invalid ack
                         if ack < self.send_base - 1:
                             pass
-                        elif ack < self.send_base:
+                        # dulplicate ack
+                        elif ack == self.send_base - 1:
                             self.dulplicate_ack += 1
+                            # fast retransmit
                             if self.dulplicate_ack == 3:
                                 self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                                 self.cwnd = self.ssthresh + 3.0
+                                self.send_state = FR
                                 self.nextseqnum = self.send_base
-                                self.fast_retransmit = True
+                                self.send_now = True # fast_retransmit
                                 self.timer = time.time()
                             if self.dulplicate_ack > 3:
                                 self.cwnd += 1.0
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                                 self.timer = time.time()
-                        # partial ack
-                        elif self.send_base <= ack and ack < self.send_base + self.cwnd - 1:
-                            self.dulplicate_ack = 1
-                            gap = ack - self.send_base + 1
-                            self.send_base = self.send_base + gap
-                            self.nextseqnum = self.send_base
-                            del self.send_buffer[0:gap]
-                            self.fast_retransmit = True
-                            self.timer = time.time()
-                        # complete ack
+                        # valid ack
                         else:
-                            self.dulplicate_ack = 1
+                            if self.send_state == FR:
+                                # partial ack
+                                if ack < self.send_base + int(self.cwnd) - 1:
+                                    self.send_now = True
+                                # complete ack
+                                else:
+                                    self.cwnd = self.ssthresh
+                                    self.send_state = CA
+                            self.dulplicate_ack = 0
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
                             self.nextseqnum = self.send_base
                             del self.send_buffer[0:gap]
-                            self.cwnd = self.ssthresh
                             for i in range(gap):
-                                if self.cwnd < self.ssthresh:
-                                    self.cwnd += 1.0
-                                else:
+                                if self.send_state == CA:
                                     self.cwnd += 1.0 / self.cwnd
+                                elif self.send_state == SS:
+                                    self.cwnd += 1.0
+                                    if self.cwnd > self.ssthresh:
+                                        self.send_state = CA
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                             self.timer = time.time()
@@ -246,9 +246,10 @@ class rdt:
         # congestion control
         self.ssthresh = CONG_DEFALUT_SSTHRESH
         self.cwnd = 1.0
-        self.dulplicate_ack = 1
+        self.dulplicate_ack = 0
+        self.send_state = SS
         # semaphores and lock between 2 thead
-        self.fast_retransmit = False # sem
+        self.send_now = False # sem
         self.disconnect = False # sem
         self.lock = threading.Lock() # lock
         # send pkts and receive acks
