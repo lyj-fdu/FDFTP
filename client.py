@@ -60,6 +60,18 @@ class Client(rdt):
                 else: # upload file
                     self.rdt_upload_file(source_path, self.server_addr)
                     print(f'upload file `{source_path}` to server folder')
+        
+    def shutdown(self):
+        # check if already disconnected
+        if self.disconnect:
+            raise Exception(f'server is closed or {CLIENT_TIMEOUT}s timeout\nbye')
+        # send disconnect file
+        self.file = open(self.temp_filepath, 'w')
+        self.file.write('shutdown')
+        self.file.close()
+        source_path = self.temp_filepath
+        self.rdt_upload_file(source_path, self.server_addr, True)
+        print('bye')
 
 def main():
     # client socket
@@ -72,7 +84,7 @@ def main():
         while True:
             line = input('>>> ')
             if line == '': # exit
-                print('bye')
+                client_socket.shutdown()
                 break
             cmd = line.split(' ') # analyze
             if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): # wrong cmd

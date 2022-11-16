@@ -62,7 +62,11 @@ class ConnectionServer(Server):
                 dest_path = self.temp_filepath
             else: # recieve file
                 self.file = open(self.temp_filepath, 'r')
-                cmd = str(self.file.read()).split(' ')
+                cmd = str(self.file.read())
+                if cmd == 'shutdown':
+                    self.file.close()
+                    raise Exception('client shutdown')
+                cmd = cmd.split(' ')
                 op = cmd[0]
                 filename = cmd[1]
                 if op == 'fsnd': dest_path = 'server/' + filename[filename.rfind('/')+1:]
