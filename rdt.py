@@ -128,6 +128,11 @@ class rdt:
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                                 self.timer = time.time()
+                            if self.send_base == self.PACKETS_NUM:
+                                self.dulplicate_ack = 0
+                                self.send_now = False
+                                self.cwnd = self.ssthresh
+                                self.send_state = CA
                         # valid ack
                         else:
                             if self.send_state == FR:
@@ -141,6 +146,10 @@ class rdt:
                             self.dulplicate_ack = 0
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
+                            if self.send_state == FR and self.send_base == self.PACKETS_NUM:
+                                self.cwnd = self.ssthresh
+                                self.send_now = False
+                                self.send_state = CA
                             self.nextseqnum = self.send_base
                             del self.send_buffer[0:gap]
                             for i in range(gap):
@@ -155,7 +164,8 @@ class rdt:
                             self.timer = time.time()
                     else:
                         if DEBUG: print(f'receive  ack={ack}, finack')
-                        self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
+                        # terminate __send_msg_pkt
+                        self.send_base = self.PACKETS_NUM + 1
                         break
         except: # hint other thread to end
             self.disconnect = True
