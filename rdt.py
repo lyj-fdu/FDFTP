@@ -54,7 +54,7 @@ class rdt:
                     self.dulplicate_ack = 0
                     self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                     self.cwnd = 1.0
-                    self.send_state = SS
+                    self.send_state = 'SS'
                     self.nextseqnum = self.send_base
                     self.send_now = True # retransmit
                     self.timer = time.time()
@@ -119,7 +119,7 @@ class rdt:
                             if self.dulplicate_ack == 3:
                                 self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                                 self.cwnd = self.ssthresh + 3.0
-                                self.send_state = FR
+                                self.send_state = 'FR'
                                 self.nextseqnum = self.send_base
                                 self.send_now = True # fast_retransmit
                                 self.timer = time.time()
@@ -133,17 +133,17 @@ class rdt:
                                 self.dulplicate_ack = 0
                                 self.send_now = False
                                 self.cwnd = self.ssthresh
-                                self.send_state = CA
+                                self.send_state = 'CA'
                         # valid ack
                         else:
-                            if self.send_state == FR:
+                            if self.send_state == 'FR':
                                 # partial ack, stay in FR
                                 if ack < self.send_base + int(self.cwnd) - 1:
                                     self.send_now = True
                                 # complete ack, FR to CA
                                 else:
                                     self.cwnd = self.ssthresh
-                                    self.send_state = CA
+                                    self.send_state = 'CA'
                             self.dulplicate_ack = 0
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
@@ -151,15 +151,15 @@ class rdt:
                             if self.send_base == self.PACKETS_NUM:
                                 self.send_now = False
                                 self.cwnd = self.ssthresh
-                                self.send_state = CA
+                                self.send_state = 'CA'
                             del self.send_buffer[0:gap]
                             for i in range(gap):
-                                if self.send_state == CA:
+                                if self.send_state == 'CA':
                                     self.cwnd += 1.0 / self.cwnd
-                                elif self.send_state == SS:
+                                elif self.send_state == 'SS':
                                     self.cwnd += 1.0
                                     if self.cwnd > self.ssthresh:
-                                        self.send_state = CA
+                                        self.send_state = 'CA'
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                             self.timer = time.time()
@@ -260,7 +260,7 @@ class rdt:
         self.ssthresh = CONG_DEFALUT_SSTHRESH
         self.cwnd = 1.0
         self.dulplicate_ack = 0
-        self.send_state = SS
+        self.send_state = 'SS'
         # semaphores and lock between 2 thead
         self.disconnect = False # sem
         self.lock = threading.Lock() # lock

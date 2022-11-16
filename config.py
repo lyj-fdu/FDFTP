@@ -26,10 +26,6 @@ SERVER_IP = '192.168.50.10'
 SERVER_PORT = 8888
 
 '''sender'''
-# states of sender
-SS = 'SS'
-CA = 'CA'
-FR = 'FR'
 # retransmission time
 # if the network is bad, set it smaller
 # the better practice is to measure RTT and set dynamically
