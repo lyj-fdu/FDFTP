@@ -58,7 +58,7 @@ class rdt:
                     self.nextseqnum = self.send_base
                     self.send_now = True # retransmit
                     self.timer = time.time()
-                    if DEBUG: print(f'timeout  ssthresh={self.ssthresh}')
+                    if DEBUG: print(f'timeout ssthresh={self.ssthresh}')
                 # send packet
                 if self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + int(self.cwnd) and self.nextseqnum <= self.PACKETS_NUM:
                     # buffer payload
@@ -79,10 +79,10 @@ class rdt:
                             else:
                                 self.udt_send(sndpkt, addr)
                             if self.nextseqnum > self.sended:
-                                if DEBUG: print(f'send     seq={self.nextseqnum}, fin')
+                                if DEBUG: print(f'[{self.send_state}] send   seq={self.nextseqnum} <fin>')
                                 self.sended += 1
                             else:
-                                if DEBUG: print(f'resend   seq={self.nextseqnum}, fin')
+                                if DEBUG: print(f'[{self.send_state}] resend seq={self.nextseqnum} <fin>')
                                 self.resend += 1
                         else:
                             sndpkt = self.make_pkt(seq=self.nextseqnum, data=payload)
@@ -91,10 +91,10 @@ class rdt:
                             else:
                                 self.udt_send(sndpkt, addr)
                             if self.nextseqnum > self.sended:
-                                if DEBUG: print(f'send     seq={self.nextseqnum}, cwnd={self.cwnd}')
+                                if DEBUG: print(f'[{self.send_state}] send   seq={self.nextseqnum}, cwnd={self.cwnd}')
                                 self.sended += 1
                             else:
-                                if DEBUG: print(f'resend   seq={self.nextseqnum}, cwnd={self.cwnd}')
+                                if DEBUG: print(f'[{self.send_state}] resend seq={self.nextseqnum}, cwnd={self.cwnd}')
                                 self.resend += 1
                         self.send_now = False # cancel next
                     # move next
@@ -108,14 +108,14 @@ class rdt:
                 length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
                 with self.lock:
                     if isfin == 0:
-                        if DEBUG: print(f'receive  ack={ack}')
+                        if DEBUG: print(f'receive ack={ack}')
                         # invalid ack
                         if ack < self.send_base - 1:
                             pass
                         # dulplicate ack
                         elif ack == self.send_base - 1:
                             self.dulplicate_ack += 1
-                            # fast retransmit
+                            # FR
                             if self.dulplicate_ack == 3:
                                 self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                                 self.cwnd = self.ssthresh + 3.0
@@ -128,6 +128,7 @@ class rdt:
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                                 self.timer = time.time()
+                            # reach end, FR to CA
                             if self.send_base == self.PACKETS_NUM:
                                 self.dulplicate_ack = 0
                                 self.send_now = False
@@ -136,21 +137,21 @@ class rdt:
                         # valid ack
                         else:
                             if self.send_state == FR:
-                                # partial ack
+                                # partial ack, stay in FR
                                 if ack < self.send_base + int(self.cwnd) - 1:
                                     self.send_now = True
-                                # complete ack
+                                # complete ack, FR to CA
                                 else:
                                     self.cwnd = self.ssthresh
                                     self.send_state = CA
                             self.dulplicate_ack = 0
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
-                            if self.send_state == FR and self.send_base == self.PACKETS_NUM:
-                                self.cwnd = self.ssthresh
-                                self.send_now = False
-                                self.send_state = CA
                             self.nextseqnum = self.send_base
+                            if self.send_base == self.PACKETS_NUM:
+                                self.send_now = False
+                                self.cwnd = self.ssthresh
+                                self.send_state = CA
                             del self.send_buffer[0:gap]
                             for i in range(gap):
                                 if self.send_state == CA:
@@ -163,7 +164,7 @@ class rdt:
                                     self.cwnd = float(RWND)
                             self.timer = time.time()
                     else:
-                        if DEBUG: print(f'receive  ack={ack}, finack')
+                        if DEBUG: print(f'receive ack={ack} <finack>')
                         # terminate __send_msg_pkt
                         self.send_base = self.PACKETS_NUM + 1
                         break
@@ -176,6 +177,7 @@ class rdt:
             rcvpkt, client_addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
             if isfin == 0:
+                if DEBUG: print(f'receive seq={seq}')
                 # update ack, expectedseqnum, buffer
                 if seq < self.expectedseqnum:
                     ack = seq
@@ -208,9 +210,9 @@ class rdt:
                 # send ack packet
                 sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                 self.udt_send(sndpkt, addr)
-                if DEBUG: print(f'send     ack={ack}')
+                if DEBUG: print(f'send    ack={ack}')
             else:
-                if DEBUG: print(f'receive  seq={seq}, fin')
+                if DEBUG: print(f'receive seq={seq} <fin>')
                 # update ack, buffer
                 if seq < self.expectedseqnum:
                     isfin = 0
@@ -229,9 +231,9 @@ class rdt:
                 sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                 self.udt_send(sndpkt, addr)
                 if isfin == 0:
-                    if DEBUG: print(f'send     ack={ack}')
+                    if DEBUG: print(f'send    ack={ack}')
                 else:
-                    if DEBUG: print(f'send     ack={ack}, finack')
+                    if DEBUG: print(f'send    ack={ack} <finack>')
                     break
                 
     def rdt_upload_file(self, source_path, addr, is_temp_file=False):

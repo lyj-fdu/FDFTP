@@ -31,9 +31,9 @@ CLIENT_TIMEOUT = 666
 
 '''sender'''
 # states of sender
-SS = 1
-CA = 2
-FR = 3
+SS = 'SS'
+CA = 'CA'
+FR = 'FR'
 # retransmission time
 # if the network is bad, set it smaller
 # the better practice is to measure RTT and set dynamically
