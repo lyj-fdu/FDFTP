@@ -235,21 +235,21 @@ class rdt:
         else: # empty file
             self.PACKETS_NUM = 1
             self.LAST_PACKET_SIZE = 0
-        # send msg
+        # send controls
         self.send_buffer = []
         self.timer = time.time()
         self.send_base = 1
         self.nextseqnum = 1
+        self.send_now = False
         self.bufferedseqnum = 0
         self.sended = 0
         self.resend = 0
-        # congestion control
+        # congestion controls
         self.ssthresh = CONG_DEFALUT_SSTHRESH
         self.cwnd = 1.0
         self.dulplicate_ack = 0
         self.send_state = SS
         # semaphores and lock between 2 thead
-        self.send_now = False # sem
         self.disconnect = False # sem
         self.lock = threading.Lock() # lock
         # send pkts and receive acks
@@ -264,20 +264,21 @@ class rdt:
         receive.start()
         send.join()
         receive.join()
+        # performance records
         if self.use_task:
             self.task.finish()
             end_time = time.time()
-            transfer_time = end_time - beg_time
-            file_size_KB = self.FILE_SIZE / math.pow(2, 10)
-            transfer_rate = file_size_KB / transfer_time
+            transfer_time_s = end_time - beg_time
+            file_size_Mb = self.FILE_SIZE / math.pow(2, 10)
+            transfer_rate_Mbps = file_size_Mb / transfer_time_s
             if self.resend + self.sended != 0:
                 pkt_loss_rate = self.resend / (self.resend + self.sended) * 100
             else:
                 pkt_loss_rate = 0
             if PERFORMANCE: 
-                print(f'size={file_size_KB}Mb')
-                print(f'time={transfer_time}s')
-                print(f'rate={transfer_rate}Mbps')
+                print(f'size={file_size_Mb}Mb')
+                print(f'time={transfer_time_s}s')
+                print(f'rate={transfer_rate_Mbps}Mbps')
                 print(f'pkt_loss_rate={pkt_loss_rate}%')
         # close file if necessary
         if os.path.isfile(source_path): 
@@ -285,23 +286,25 @@ class rdt:
     
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''
-        # clear old file
+        # remove file
         if os.path.isfile(dest_path): 
             os.remove(dest_path)
         # create file
         self.file = open(dest_path, 'w')
         self.file.close()
-        # open file and receive
+        # open file
         self.file = open(dest_path, 'wb')
+        # receive controls
         self.expectedseqnum = 1
         self.receive_buffer = [None] * RWND
         self.receive_acked = [False] * RWND
         self.deliver_data = bytes()
+        # receive pkts and send acks
         self.__receive_msg_pkt_and_send_ack_pkt(addr)
         # close file
         self.file.close()
+        # remove file if necessary
         if os.path.getsize(dest_path) == 0:
-            filename = dest_path[dest_path.find('/')+1:]
             os.remove(dest_path)
 
     def close(self):
