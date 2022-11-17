@@ -43,7 +43,12 @@ class ConnectionServer(Server):
         self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         self.rdt_download_file(self.temp_filepath, self.client_addr)
         self.file = open(self.temp_filepath, 'r')
-        self.cong_timeout = float(self.file.read())
+        content = str(self.file.read()).split(' ')
+        if len(content) != 2:
+            if DEBUG: print(content)
+            raise Exception('client fail to connect')
+        self.CONG_TIMEOUT = float(content[0])
+        self.RWND = int(content[1])
         self.file.close()
 
     def rdt_transfer(self):
@@ -61,6 +66,7 @@ class ConnectionServer(Server):
                     raise Exception('client shutdown')
                 cmd = cmd.split(' ')
                 if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): # wrong cmd
+                    if DEBUG: print(cmd)
                     raise Exception('client fail to connect')
                 op = cmd[0]
                 filename = cmd[1]
@@ -81,9 +87,9 @@ def communicate(connection_port, client_addr):
     # connection socket
     connection_socket = ConnectionServer(connection_port)
     # connect
-    connection_socket.connect(client_addr)
-    print(f'>>> {client_addr} connected')
     try:
+        connection_socket.connect(client_addr)
+        print(f'>>> {client_addr} connected')
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
     except Exception as e:

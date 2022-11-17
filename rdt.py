@@ -12,7 +12,8 @@ class rdt:
     def __init__(self):
         '''create UDP socket'''
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.cong_timeout = DEFAULT_CONG_TIMEOUT
+        self.CONG_TIMEOUT = DEFAULT_CONG_TIMEOUT
+        self.RWND = DEFAULT_RWND
         self.temp_filepath = ''
     
     def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
@@ -51,7 +52,7 @@ class rdt:
                 if self.PACKETS_NUM < self.send_base: 
                     break
                 # timeout
-                if self.cong_timeout < (time.time() - self.timer):
+                if self.CONG_TIMEOUT < (time.time() - self.timer):
                     self.dulplicate_ack = 0
                     self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                     self.cwnd = 1.0
@@ -126,8 +127,8 @@ class rdt:
                                 self.timer = time.time()
                             if self.dulplicate_ack > 3:
                                 self.cwnd += 1.0
-                                if self.cwnd > RWND: 
-                                    self.cwnd = float(RWND)
+                                if self.cwnd > self.RWND: 
+                                    self.cwnd = float(self.RWND)
                                 self.timer = time.time()
                             # reach end, FR to CA
                             if self.send_base == self.PACKETS_NUM:
@@ -161,13 +162,12 @@ class rdt:
                                     self.cwnd += 1.0
                                     if self.cwnd > self.ssthresh:
                                         self.send_state = 'CA'
-                                if self.cwnd > RWND: 
-                                    self.cwnd = float(RWND)
+                                if self.cwnd > self.RWND: 
+                                    self.cwnd = float(self.RWND)
                             self.timer = time.time()
                     else:
                         if DEBUG: print(f'receive ack={ack} <finack>')
-                        # terminate __send_msg_pkt
-                        self.send_base = self.PACKETS_NUM + 1
+                        self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
                         break
         except: # hint other thread to end
             self.disconnect = True
@@ -180,7 +180,7 @@ class rdt:
             if isfin == 0:
                 if DEBUG: print(f'receive seq={seq}')
                 # update ack, expectedseqnum, buffer
-                if seq < self.expectedseqnum + RWND:
+                if seq < self.expectedseqnum + self.RWND:
                     if seq < self.expectedseqnum:
                         ack = seq
                     else:
@@ -225,7 +225,7 @@ class rdt:
             else:
                 if DEBUG: print(f'receive seq={seq} <fin>')
                 # update ack, buffer
-                if seq < self.expectedseqnum + RWND:
+                if seq < self.expectedseqnum + self.RWND:
                     if seq < self.expectedseqnum:
                         isfin = 0
                         ack = seq
@@ -273,7 +273,7 @@ class rdt:
         self.sended = 0
         self.resend = 0
         # congestion controls
-        self.ssthresh = RWND
+        self.ssthresh = self.RWND
         self.cwnd = DEFAULT_CWND
         self.dulplicate_ack = 0
         self.send_state = 'SS'
@@ -324,8 +324,8 @@ class rdt:
         self.file = open(dest_path, 'wb')
         # receive controls
         self.expectedseqnum = 1
-        self.receive_buffer = [None] * RWND
-        self.receive_acked = [False] * RWND
+        self.receive_buffer = [None] * self.RWND
+        self.receive_acked = [False] * self.RWND
         self.deliver_count = 0
         self.deliver_data = bytes()
         # receive pkts and send acks

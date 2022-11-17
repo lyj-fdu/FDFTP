@@ -1,12 +1,14 @@
 '''server'''
 # server ip
-# SERVER_IP = '8.218.117.184' # remote server
+SERVER_IP = '8.218.117.184' # remote server
 # SERVER_IP = 'localhost' # look back
-SERVER_IP = '10.187.254.199' # virtual machine
+# SERVER_IP = '10.187.254.199' # virtual machine
 # welcome socket port
 # connection socket will increase from this
 # it's set casually on available port in the computer
 SERVER_PORT = 8888
+# server maxium bandwith
+MAX_BANDWIDTH = 30
 
 '''debug'''
 # print some info during rdt transfer
@@ -51,4 +53,4 @@ WRITE_MAX = 43
 # abstract: too small will not fully ues bandwidth
 #           too big will cause stop-wait of TCP-NewReno if too many packets lost
 # it's set casually of a medium number
-RWND = 200
+DEFAULT_RWND = 200
