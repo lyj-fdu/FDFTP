@@ -60,6 +60,8 @@ class ConnectionServer(Server):
                     self.file.close()
                     raise Exception('client shutdown')
                 cmd = cmd.split(' ')
+                if (len(cmd) != 2) or (cmd[0] != 'fsnd' and cmd[0] != 'frcv'): # wrong cmd
+                    raise Exception('client fail to connect')
                 op = cmd[0]
                 filename = cmd[1]
                 if op == 'fsnd': dest_path = 'server/' + filename[filename.rfind('/')+1:]

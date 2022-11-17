@@ -11,14 +11,14 @@ class Client(rdt):
         '''handshake with welcome_socket and connect with connection socket'''
         # determin cong_timeout
         try:
-            self.cong_timeout = max(float(ping3.ping(str(SERVER_IP), 1, 's')) * 2, DEFAULT_CONG_TIMEOUT)
+            self.cong_timeout = max(float(ping3.ping(str(server_addr[0]), 1, 's')) * 2, DEFAULT_CONG_TIMEOUT)
             if DEBUG: print(f'ping success and set cong_timeout={self.cong_timeout}')
         except:
             self.cong_timeout = DEFAULT_CONG_TIMEOUT
             if DEBUG: print(f'ping failed and set default_cong_timeout={self.cong_timeout}')
         # handshake 1
         self.server_addr = server_addr
-        sndpkt = self.make_pkt(issyn=1)
+        sndpkt = self.make_pkt(isfin=1, issyn=1)
         self.udt_send(sndpkt, self.server_addr)
         self.temp_filepath = 'client/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         # handshake 2 & 3
@@ -26,7 +26,7 @@ class Client(rdt):
         self.file = open(self.temp_filepath, 'r')
         connection_port = str(self.file.read())
         self.file.close()
-        self.server_addr = (self.server_addr[0], int(connection_port))
+        self.server_addr = (server_addr[0], int(connection_port))
         # send cong_timeout
         self.file = open(self.temp_filepath, 'w')
         self.file.write(f'{self.cong_timeout}')
