@@ -6,14 +6,13 @@ import os
 import time
 import math
 import threading
-from ping3 import ping
 
 class rdt:
     
     def __init__(self):
         '''create UDP socket'''
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.cong_timeout = CONG_DEFAULT_TIMEOUT
+        self.cong_timeout = DEFAULT_CONG_TIMEOUT
         self.temp_filepath = ''
     
     def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
@@ -130,6 +129,12 @@ class rdt:
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                                 self.timer = time.time()
+                            # reach end, FR to CA
+                            if self.send_base == self.PACKETS_NUM:
+                                self.dulplicate_ack = 0
+                                self.send_now = False
+                                self.cwnd = self.ssthresh
+                                self.send_state = 'CA'
                         # valid ack
                         else:
                             if self.send_state == 'FR':
@@ -144,6 +149,10 @@ class rdt:
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
                             self.nextseqnum = self.send_base
+                            if self.send_base == self.PACKETS_NUM:
+                                self.send_now = False
+                                self.cwnd = self.ssthresh
+                                self.send_state = 'CA'
                             del self.send_buffer[0:gap]
                             for i in range(gap):
                                 if self.send_state == 'CA':
@@ -264,8 +273,8 @@ class rdt:
         self.sended = 0
         self.resend = 0
         # congestion controls
-        self.ssthresh = CONG_DEFALUT_SSTHRESH
-        self.cwnd = 1.0
+        self.ssthresh = RWND
+        self.cwnd = DEFAULT_CWND
         self.dulplicate_ack = 0
         self.send_state = 'SS'
         # semaphores and lock between 2 thead
@@ -288,16 +297,16 @@ class rdt:
             self.task.finish()
             end_time = time.time()
             transfer_time_s = end_time - beg_time
-            file_size_Mb = self.FILE_SIZE / math.pow(2, 10)
-            transfer_rate_Mbps = file_size_Mb / transfer_time_s
+            file_size_Kb = self.FILE_SIZE / math.pow(2, 10)
+            transfer_rate_Kbps = file_size_Kb / transfer_time_s
             if self.resend + self.sended != 0:
                 pkt_loss_rate = self.resend / (self.resend + self.sended) * 100
             else:
                 pkt_loss_rate = 0
             if PERFORMANCE: 
-                print(f'size={file_size_Mb}Mb')
+                print(f'size={file_size_Kb}Kb')
                 print(f'time={transfer_time_s}s')
-                print(f'rate={transfer_rate_Mbps}Mbps')
+                print(f'rate={transfer_rate_Kbps}Kbps')
                 print(f'pkt_loss_rate={pkt_loss_rate}%')
         # close file if necessary
         if os.path.isfile(source_path): 

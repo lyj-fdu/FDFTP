@@ -1,4 +1,5 @@
 from rdt import *
+import ping3
 
 class Client(rdt):
 
@@ -8,6 +9,13 @@ class Client(rdt):
 
     def connect(self, server_addr):
         '''handshake with welcome_socket and connect with connection socket'''
+        # determin cong_timeout
+        try:
+            self.cong_timeout = max(float(ping3.ping(str(SERVER_IP), 1, 's')) * 2, DEFAULT_CONG_TIMEOUT)
+            if DEBUG: print(f'ping success and set cong_timeout={self.cong_timeout}')
+        except:
+            self.cong_timeout = DEFAULT_CONG_TIMEOUT
+            if DEBUG: print(f'ping failed and set default_cong_timeout={self.cong_timeout}')
         # handshake 1
         self.server_addr = server_addr
         sndpkt = self.make_pkt(issyn=1)
@@ -16,11 +24,14 @@ class Client(rdt):
         # handshake 2 & 3
         self.rdt_download_file(self.temp_filepath, self.server_addr)
         self.file = open(self.temp_filepath, 'r')
-        content = str(self.file.read()).split(' ')
-        connection_port = str(content[0])
-        self.cong_timeout = float(content[1])
+        connection_port = str(self.file.read())
         self.file.close()
         self.server_addr = (self.server_addr[0], int(connection_port))
+        # send cong_timeout
+        self.file = open(self.temp_filepath, 'w')
+        self.file.write(f'{self.cong_timeout}')
+        self.file.close()
+        self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
 
     def rdt_transfer(self, op, filename):
         '''rdt send filename, then download or upload file'''

@@ -22,17 +22,13 @@ class WelcomeServer(Server):
             length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
             # handshake 2 & 3
             if issyn == 1:
-                try:
-                    cong_timeout = max(float(ping(str(client_addr[0]))) * 3 / 1000, CONG_DEFAULT_TIMEOUT)
-                except:
-                    cong_timeout = CONG_DEFAULT_TIMEOUT
                 self.file = open(self.temp_filepath, 'w')
-                self.file.write(f'{self.connection_port} {cong_timeout}')
+                self.file.write(f'{self.connection_port}')
                 self.file.close()
                 self.rdt_upload_file(self.temp_filepath, client_addr, True)
                 break
         self.connection_port += 1
-        return (self.connection_port - 1, client_addr, cong_timeout)
+        return (self.connection_port - 1, client_addr)
 
 class ConnectionServer(Server):
 
@@ -40,12 +36,15 @@ class ConnectionServer(Server):
         '''create socket'''
         Server.__init__(self, port)
 
-    def connect(self, client_addr, cong_timeout):
+    def connect(self, client_addr):
         '''connect client'''
         # connect with client socket
         self.client_addr = client_addr
-        self.cong_timeout = cong_timeout
         self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
+        self.rdt_download_file(self.temp_filepath, self.client_addr)
+        self.file = open(self.temp_filepath, 'r')
+        self.cong_timeout = float(self.file.read())
+        self.file.close()
 
     def rdt_transfer(self):
         '''rdt receive filename, then upload or download file'''
@@ -75,14 +74,13 @@ class ConnectionServer(Server):
                 else: # download file
                     self.rdt_download_file(dest_path, self.client_addr)
 
-def communicate(connection_port, client_addr, cong_timeout):
+def communicate(connection_port, client_addr):
     '''connection socket thread'''
     # connection socket
     connection_socket = ConnectionServer(connection_port)
     # connect
-    connection_socket.connect(client_addr, cong_timeout)
+    connection_socket.connect(client_addr)
     print(f'>>> {client_addr} connected')
-    if DEBUG: print(f'congestion timeout={cong_timeout}')
     try:
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
@@ -98,9 +96,9 @@ def main():
     try:
         while True:
             # 3 handshakes
-            connection_port, client_addr, cong_timeout = welcome_socket.accept()
+            connection_port, client_addr = welcome_socket.accept()
             # connection socket works
-            connection = threading.Thread(target=communicate, args=(connection_port, client_addr, cong_timeout))
+            connection = threading.Thread(target=communicate, args=(connection_port, client_addr))
             connection.start()
     except Exception as e:
         print(str(e))
