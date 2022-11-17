@@ -19,7 +19,7 @@ class WelcomeServer(Server):
         while True:
             # handshake 1
             rcvpkt, client_addr = self.rdt_rcv()
-            length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
+            length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
             # handshake 2 & 3
             if issyn == 1:
                 self.file = open(self.temp_filepath, 'w')

@@ -15,14 +15,17 @@ class rdt:
         self.CONG_TIMEOUT = DEFAULT_CONG_TIMEOUT
         self.RWND = DEFAULT_RWND
         self.temp_filepath = ''
+        self.transaction_no = 0
     
-    def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
+    def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, txno=-666, data=' '.encode()):
         '''make transport layer packet'''
-        return struct.pack('5i' + str(MSS) + 's', length, seq, ack, isfin, issyn, data)
+        if txno == -666:
+            txno = self.transaction_no
+        return struct.pack('6i' + str(MSS) + 's', length, seq, ack, isfin, issyn, txno, data)
 
     def extract(self, rcvpkt):
         '''extract transport layer packet'''
-        return struct.unpack('5i' + str(MSS) + 's', rcvpkt)
+        return struct.unpack('6i' + str(MSS) + 's', rcvpkt)
     
     def __rdt_send(self, size):
         '''application layer to transport layer'''
@@ -107,7 +110,10 @@ class rdt:
         try:
             while True:
                 rcvpkt, addr = self.rdt_rcv()
-                length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
+                length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
+                if txno != self.transaction_no:
+                    if DEBUG: print(f'discard txno={txno}, ack={seq}')
+                    continue
                 with self.lock:
                     if isfin == 0:
                         if DEBUG: print(f'receive ack={ack}')
@@ -130,12 +136,6 @@ class rdt:
                                 if self.cwnd > self.RWND: 
                                     self.cwnd = float(self.RWND)
                                 self.timer = time.time()
-                            # reach end, FR to CA
-                            if self.send_base == self.PACKETS_NUM:
-                                self.dulplicate_ack = 0
-                                self.send_now = False
-                                self.cwnd = self.ssthresh
-                                self.send_state = 'CA'
                         # valid ack
                         else:
                             if self.send_state == 'FR':
@@ -150,10 +150,6 @@ class rdt:
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
                             self.nextseqnum = self.send_base
-                            if self.send_base == self.PACKETS_NUM:
-                                self.send_now = False
-                                self.cwnd = self.ssthresh
-                                self.send_state = 'CA'
                             del self.send_buffer[0:gap]
                             for i in range(gap):
                                 if self.send_state == 'CA':
@@ -176,7 +172,13 @@ class rdt:
         '''receiver: receive packet and send ack, until the whole file is acked, send fin and wait for finack'''
         while True:
             rcvpkt, client_addr = self.rdt_rcv()
-            length, seq, ack, isfin, issyn, data = self.extract(rcvpkt)
+            length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
+            if txno != self.transaction_no:
+                if DEBUG: print(f'discard txno={txno}, seq={seq}\nsend <fin>')
+                sndpkt = self.make_pkt(isfin=1, txno=txno)
+                self.udt_send(sndpkt, addr)
+                continue
+            self.rtt_times += 1
             if isfin == 0:
                 if DEBUG: print(f'receive seq={seq}')
                 # update ack, expectedseqnum, buffer
@@ -218,10 +220,6 @@ class rdt:
                     sndpkt = self.make_pkt(ack=ack, isfin=isfin)
                     self.udt_send(sndpkt, addr)
                     if DEBUG: print(f'send    ack={ack}')
-                else:
-                    sndpkt = self.make_pkt(ack=seq, isfin=1)
-                    self.udt_send(sndpkt, addr)
-                    if DEBUG: print('last seq, send <finack>')
             else:
                 if DEBUG: print(f'receive seq={seq} <fin>')
                 # update ack, buffer
@@ -247,13 +245,11 @@ class rdt:
                     else:
                         if DEBUG: print(f'send    ack={ack} <finack>')
                         break
-                else:
-                    sndpkt = self.make_pkt(ack=seq, isfin=1)
-                    self.udt_send(sndpkt, addr)
-                    if DEBUG: print('last seq, send <finack>')
                 
     def rdt_upload_file(self, source_path, addr, is_temp_file=False):
         '''client or server upload file'''
+        self.transaction_no += 1
+        if DEBUG: print(f'txno={self.transaction_no}')
         # file
         if os.path.isfile(source_path): # open file
             self.file = open(source_path, 'rb')
@@ -314,6 +310,9 @@ class rdt:
     
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''
+        self.transaction_no += 1
+        self.rtt_times = 0
+        if DEBUG: print(f'txno={self.transaction_no}')
         # remove file
         if os.path.isfile(dest_path): 
             os.remove(dest_path)

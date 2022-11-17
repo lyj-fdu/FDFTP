@@ -8,7 +8,9 @@ SERVER_IP = '8.218.117.184' # remote server
 # it's set casually on available port in the computer
 SERVER_PORT = 8888
 # server maxium bandwith
-MAX_BANDWIDTH = 30
+MAX_BANDWIDTH_Mbps = 30.0
+# tremble rate
+TREMBLE_RATE = 1.2
 
 '''debug'''
 # print some info during rdt transfer
@@ -19,11 +21,11 @@ PERFORMANCE = True
 '''packet'''
 # max segment size
 # ref: https://juejin.cn/post/6884585578344480781
-# abstract: UDP payload (1472) - 5i (20) = 1452
+# abstract: UDP payload (1472) - 6i (24) = 1448
 # NOTE: seq and ack are int in packet, 
 #       which means can send up to roughly 2GB
 #       we can set them to q(long long) to send more
-MSS = 1452
+MSS = 1448
 # socket.recvfrom(BUFSIZE)
 # ref: https://cloud.tencent.com/developer/article/2107386
 # abstract: 2048 is enough, because ethernet transmits less than 1500 Bytes
@@ -44,10 +46,10 @@ DEFAULT_CWND = 10.0
 # fixed-size receiver window
 # how many pakets can recevier buffer before receive expectedseqnum
 # ref: https://blog.csdn.net/qq_44404509/article/details/109467181
-# abstract: it should be less than 65535 / 1500 = 43.69, 
+# abstract: it should be less than 65535 / 1448 = 45.3, 
 #           or file.write() will envoke [Errno 5] Input/output error
 # it's set casually, of course, the bigger, the better, only if <= 43
-WRITE_MAX = 43
+WRITE_MAX = 45
 # receiver window
 # ref: https://www.cnblogs.com/virusolf/p/4332652.html
 # abstract: too small will not fully ues bandwidth

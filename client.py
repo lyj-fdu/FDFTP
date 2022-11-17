@@ -10,7 +10,7 @@ class Client(rdt):
         '''handshake with welcome_socket and connect with connection socket'''
         # handshake 1
         self.server_addr = server_addr
-        sndpkt = self.make_pkt(isfin=1, issyn=1)
+        sndpkt = self.make_pkt(isfin=1, issyn=1, txno=-1)
         self.udt_send(sndpkt, self.server_addr)
         self.temp_filepath = 'client/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         # handshake 2 & 3
@@ -22,12 +22,13 @@ class Client(rdt):
         self.file.close()
         self.server_addr = (server_addr[0], int(connection_port))
         # send cong_timeout
-        self.CONG_TIMEOUT = (rtt_end - rtt_beg) * 2
-        self.RWND = math.floor(MAX_BANDWIDTH * self.CONG_TIMEOUT / 8 * 1000000 / MSS)
+        self.CONG_TIMEOUT = (rtt_end - rtt_beg) / self.rtt_times * TREMBLE_RATE
+        self.RWND = math.floor((MAX_BANDWIDTH_Mbps * 1000000 / TREMBLE_RATE) * self.CONG_TIMEOUT / 8 / MSS)
         if DEBUG: print(f'cong_timeout={self.CONG_TIMEOUT}, rwnd={self.RWND}')
         self.file = open(self.temp_filepath, 'w')
         self.file.write(f'{self.CONG_TIMEOUT} {self.RWND}')
         self.file.close()
+        self.transaction_no = 0 # start connection with connection socket
         self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
 
     def rdt_transfer(self, op, filename):
@@ -91,7 +92,7 @@ def main():
                 print('wrong cmd')
                 continue
             client_socket.rdt_transfer(cmd[0], cmd[1]) # execute cmd
-            # limit one file download or upload each time
+            # # limit one file download or upload each time
             client_socket.shutdown()
             break
     except Exception as e:
