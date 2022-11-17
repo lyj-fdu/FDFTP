@@ -16,7 +16,9 @@ class Client(rdt):
         # handshake 2 & 3
         self.rdt_download_file(self.temp_filepath, self.server_addr)
         self.file = open(self.temp_filepath, 'r')
-        connection_port = str(self.file.read())
+        content = str(self.file.read()).split(' ')
+        connection_port = str(content[0])
+        self.cong_timeout = float(content[1])
         self.file.close()
         self.server_addr = (self.server_addr[0], int(connection_port))
 
@@ -56,10 +58,7 @@ class Client(rdt):
                     print(f'upload file `{source_path}` to server folder')
         
     def shutdown(self):
-        # check if already disconnected
-        if self.disconnect:
-            raise Exception(f'server is closed\nbye')
-        # send disconnect file
+        '''send disconnect file'''
         self.file = open(self.temp_filepath, 'w')
         self.file.write('shutdown')
         self.file.close()
@@ -84,6 +83,9 @@ def main():
                 print('wrong cmd')
                 continue
             client_socket.rdt_transfer(cmd[0], cmd[1]) # execute cmd
+            # limit one file download or upload each time
+            client_socket.shutdown()
+            break
     except Exception as e:
         print(str(e))
     # close client socket

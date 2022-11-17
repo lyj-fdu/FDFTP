@@ -6,12 +6,14 @@ import os
 import time
 import math
 import threading
+from ping3 import ping
 
 class rdt:
     
     def __init__(self):
         '''create UDP socket'''
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.cong_timeout = CONG_DEFAULT_TIMEOUT
         self.temp_filepath = ''
     
     def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, data=' '.encode()):
@@ -50,7 +52,7 @@ class rdt:
                 if self.PACKETS_NUM < self.send_base: 
                     break
                 # timeout
-                if CONG_TIMEOUT < (time.time() - self.timer):
+                if self.cong_timeout < (time.time() - self.timer):
                     self.dulplicate_ack = 0
                     self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
                     self.cwnd = 1.0
@@ -128,12 +130,6 @@ class rdt:
                                 if self.cwnd > RWND: 
                                     self.cwnd = float(RWND)
                                 self.timer = time.time()
-                            # reach end, FR to CA
-                            if self.send_base == self.PACKETS_NUM:
-                                self.dulplicate_ack = 0
-                                self.send_now = False
-                                self.cwnd = self.ssthresh
-                                self.send_state = 'CA'
                         # valid ack
                         else:
                             if self.send_state == 'FR':
@@ -148,10 +144,6 @@ class rdt:
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
                             self.nextseqnum = self.send_base
-                            if self.send_base == self.PACKETS_NUM:
-                                self.send_now = False
-                                self.cwnd = self.ssthresh
-                                self.send_state = 'CA'
                             del self.send_buffer[0:gap]
                             for i in range(gap):
                                 if self.send_state == 'CA':
@@ -179,62 +171,77 @@ class rdt:
             if isfin == 0:
                 if DEBUG: print(f'receive seq={seq}')
                 # update ack, expectedseqnum, buffer
-                if seq < self.expectedseqnum:
-                    ack = seq
-                else:
-                    if seq == self.expectedseqnum:
-                        # buffer it
-                        self.receive_acked[0] = True
-                        self.receive_buffer[0] = data[:length]
-                        # deliver sequence
-                        if self.receive_acked.count(False) != 0:
-                            deliver_num = self.receive_acked.index(False)
+                if seq < self.expectedseqnum + RWND:
+                    if seq < self.expectedseqnum:
+                        ack = seq
+                    else:
+                        if seq == self.expectedseqnum:
+                            # buffer it
+                            self.receive_acked[0] = True
+                            self.receive_buffer[0] = data[:length]
+                            # deliver sequence
+                            if self.receive_acked.count(False) != 0:
+                                deliver_num = self.receive_acked.index(False)
+                            else:
+                                deliver_num = len(self.receive_acked)
+                            for i in range(deliver_num):
+                                self.deliver_count += 1
+                                self.deliver_data = self.deliver_data + self.receive_buffer[0]
+                                if self.deliver_count == WRITE_MAX:
+                                    self.__deliver_data()
+                                    self.deliver_count = 0
+                                    self.deliver_data = bytes()
+                                self.receive_buffer.pop(0)
+                                self.receive_buffer.append(None)
+                                self.receive_acked.pop(0)
+                                self.receive_acked.append(False)
+                            self.__deliver_data()
+                            self.deliver_data = bytes()
+                            if DEBUG: print(f'flush {deliver_num} pkts')
+                            self.expectedseqnum += deliver_num
                         else:
-                            deliver_num = len(self.receive_acked)
-                        for i in range(deliver_num):
-                            self.deliver_data = self.deliver_data + self.receive_buffer[0]
-                            self.receive_buffer.pop(0)
-                            self.receive_buffer.append(None)
-                            self.receive_acked.pop(0)
-                            self.receive_acked.append(False)
-                        self.__deliver_data()
-                        self.deliver_data = bytes()
-                        if DEBUG: print(f'flush {deliver_num} pkts')
-                        self.expectedseqnum += deliver_num
-                    elif seq < self.expectedseqnum + RWND:
-                        # buffer valid
-                        if not self.receive_acked[seq - self.expectedseqnum]:
-                            self.receive_acked[seq - self.expectedseqnum] = True
-                            self.receive_buffer[seq - self.expectedseqnum] = data[:length]
-                    ack = self.expectedseqnum - 1
-                # send ack packet
-                sndpkt = self.make_pkt(ack=ack, isfin=isfin)
-                self.udt_send(sndpkt, addr)
-                if DEBUG: print(f'send    ack={ack}')
+                            # buffer valid
+                            if not self.receive_acked[seq - self.expectedseqnum]:
+                                self.receive_acked[seq - self.expectedseqnum] = True
+                                self.receive_buffer[seq - self.expectedseqnum] = data[:length]
+                        ack = self.expectedseqnum - 1
+                    # send ack packet
+                    sndpkt = self.make_pkt(ack=ack, isfin=isfin)
+                    self.udt_send(sndpkt, addr)
+                    if DEBUG: print(f'send    ack={ack}')
+                else:
+                    sndpkt = self.make_pkt(ack=seq, isfin=1)
+                    self.udt_send(sndpkt, addr)
+                    if DEBUG: print('last seq, send <finack>')
             else:
                 if DEBUG: print(f'receive seq={seq} <fin>')
                 # update ack, buffer
-                if seq < self.expectedseqnum:
-                    isfin = 0
-                    ack = seq
-                elif seq == self.expectedseqnum:
-                    if length != 0: # length == 0 means download empty file
-                        self.deliver_data = self.deliver_data + data[:length]
-                        self.__deliver_data()
-                        self.deliver_data = bytes()
-                        if DEBUG: print('flush remaining pkts')
-                    ack = self.expectedseqnum
+                if seq < self.expectedseqnum + RWND:
+                    if seq < self.expectedseqnum:
+                        isfin = 0
+                        ack = seq
+                    elif seq == self.expectedseqnum:
+                        if length != 0: # length == 0 means download empty file
+                            self.deliver_data = self.deliver_data + data[:length]
+                            self.__deliver_data()
+                            self.deliver_data = bytes()
+                            if DEBUG: print('flush remaining pkts')
+                        ack = self.expectedseqnum
+                    else:
+                        isfin = 0
+                        ack = self.expectedseqnum - 1
+                    # send ack packet
+                    sndpkt = self.make_pkt(ack=ack, isfin=isfin)
+                    self.udt_send(sndpkt, addr)
+                    if isfin == 0:
+                        if DEBUG: print(f'send    ack={ack}')
+                    else:
+                        if DEBUG: print(f'send    ack={ack} <finack>')
+                        break
                 else:
-                    isfin = 0
-                    ack = self.expectedseqnum - 1
-                # send ack packet
-                sndpkt = self.make_pkt(ack=ack, isfin=isfin)
-                self.udt_send(sndpkt, addr)
-                if isfin == 0:
-                    if DEBUG: print(f'send    ack={ack}')
-                else:
-                    if DEBUG: print(f'send    ack={ack} <finack>')
-                    break
+                    sndpkt = self.make_pkt(ack=seq, isfin=1)
+                    self.udt_send(sndpkt, addr)
+                    if DEBUG: print('last seq, send <finack>')
                 
     def rdt_upload_file(self, source_path, addr, is_temp_file=False):
         '''client or server upload file'''
@@ -310,6 +317,7 @@ class rdt:
         self.expectedseqnum = 1
         self.receive_buffer = [None] * RWND
         self.receive_acked = [False] * RWND
+        self.deliver_count = 0
         self.deliver_data = bytes()
         # receive pkts and send acks
         self.__receive_msg_pkt_and_send_ack_pkt(addr)

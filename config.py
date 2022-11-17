@@ -11,26 +11,21 @@ MSS = 1452
 # abstract: 2048 is enough, because ethernet transmits less than 1500 Bytes
 BUFSIZE = 2048
 
-'''client'''
-# client ip
-# CLIENT_IP = 'localhost'
-CLIENT_IP = '192.168.50.67'
-
 '''server'''
 # server ip
+SERVER_IP = '10.222.204.177'
+# SERVER_IP = '8.218.117.184'
 # SERVER_IP = 'localhost'
-SERVER_IP = '192.168.50.10'
 # welcome socket port
 # connection socket will increase from this
 # it's set casually on available port in the computer
 SERVER_PORT = 8888
 
 '''sender'''
-# retransmission time
-# if the network is bad, set it smaller
-# the better practice is to measure RTT and set dynamically
-# but it's set casually right now
-CONG_TIMEOUT = 1
+# default retransmission time, if ping failed, use this
+# ref: https://zhidao.baidu.com/question/1989362613706374707.html
+# abstract: fine network delay is 1-100 ms
+CONG_DEFAULT_TIMEOUT = 0.1
 # defalut ssthresh
 # ref: https://blog.csdn.net/lishanmin11/article/details/77165077
 # abstract: Google says cwnd default to be 10.0 is best
@@ -43,7 +38,10 @@ CONG_DEFALUT_SSTHRESH = 10.0
 # abstract: it should be less than 65535 / MSS ≈ 43, 
 #           or file.write() will envoke [Errno 5] Input/output error
 # it's set casually, of course, the bigger, the better, only if < 44
-RWND = 43
+WRITE_MAX = 43
+# receiver window
+# it's set casually
+RWND = 200
 
 '''debug'''
 # print some info during rdt transfer
