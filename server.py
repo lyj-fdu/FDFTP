@@ -45,8 +45,6 @@ class ConnectionServer(Server):
         # handshake 3
         rcvpkt, client_addr = self.rdt_rcv()
         length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
-        if not (issyn == 1 and seq == 2):
-            raise Exception('handshake fail, client fail to connect')
         if DEBUG: print('handshake 3')
         print(f'>>> {client_addr} connected')
         # connect with client socket

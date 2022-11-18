@@ -27,6 +27,11 @@ class Client(rdt):
             self.udt_send(re_sndpkt, self.server_addr)
             if DEBUG: print('handshake 3')
             break
+        # print info
+        print(f'>>> server {self.server_addr} connected')
+        print('  > upload  : `fsnd filename`')
+        print('  > download: `frcv filename`')
+        print('  > exit    : input nothing:)')
         # send cong_timeout
         self.CONG_TIMEOUT = (rtt_end - rtt_beg) * TREMBLE_RATE
         self.RWND = math.floor((MAX_BANDWIDTH_Mbps * 1000000 / TREMBLE_RATE) * self.CONG_TIMEOUT / 8 / MSS)
@@ -86,9 +91,6 @@ def main():
     # 3 handshakes and connect
     try:
         client_socket.connect((SERVER_IP, SERVER_PORT))
-        print('>>> upload  : `fsnd filename`')
-        print('>>> download: `frcv filename`')
-        print('>>> exit    : input nothing:)')
         while True:
             line = input('>>> ')
             if line == '': # exit
