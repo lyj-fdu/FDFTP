@@ -10,11 +10,11 @@ SERVER_PORT = 8888
 # server maxium bandwith
 MAX_BANDWIDTH_Mbps = 30.0
 # tremble rate
-TREMBLE_RATE = 1.2
+TREMBLE_RATE = 1.3
 
 '''debug'''
 # print some info during rdt transfer
-DEBUG = True
+DEBUG = False
 # print performance such as rate and pkt_loss_rate
 PERFORMANCE = True
 

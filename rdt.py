@@ -111,10 +111,10 @@ class rdt:
             while True:
                 rcvpkt, addr = self.rdt_rcv()
                 length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
-                if txno != self.transaction_no:
-                    if DEBUG: print(f'discard txno={txno}, ack={seq}')
-                    continue
                 with self.lock:
+                    if txno != self.transaction_no:
+                        if DEBUG: print(f'discard txno={txno}, ack={seq}')
+                        continue
                     if isfin == 0:
                         if DEBUG: print(f'receive ack={ack}')
                         # invalid ack
@@ -248,7 +248,7 @@ class rdt:
     def rdt_upload_file(self, source_path, addr, is_temp_file=False):
         '''client or server upload file'''
         self.transaction_no += 1
-        if DEBUG: print(f'txno={self.transaction_no}')
+        if DEBUG: print(f'<txno={self.transaction_no}>')
         # file
         if os.path.isfile(source_path): # open file
             self.file = open(source_path, 'rb')
@@ -289,6 +289,7 @@ class rdt:
         receive.join()
         # performance records
         if self.use_task:
+            print('======')
             self.task.finish()
             end_time = time.time()
             transfer_time_s = end_time - beg_time
@@ -303,6 +304,7 @@ class rdt:
                 print(f'time={transfer_time_s}s')
                 print(f'rate={transfer_rate_Kbps}Kbps')
                 print(f'pkt_loss_rate={pkt_loss_rate}%')
+            print('======')
         # close file if necessary
         if os.path.isfile(source_path): 
             self.file.close()
@@ -310,7 +312,7 @@ class rdt:
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''
         self.transaction_no += 1
-        if DEBUG: print(f'txno={self.transaction_no}')
+        if DEBUG: print(f'<txno={self.transaction_no}>')
         # remove file
         if os.path.isfile(dest_path): 
             os.remove(dest_path)

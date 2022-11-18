@@ -78,7 +78,7 @@ class Client(rdt):
         self.file.write('shutdown')
         self.file.close()
         self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
-        print('bye')
+        if DEBUG: print('bye')
 
 def main():
     # client socket
@@ -86,9 +86,9 @@ def main():
     # 3 handshakes and connect
     try:
         client_socket.connect((SERVER_IP, SERVER_PORT))
-        print('>>> upload  : `fsnd filename`, file should be under folder `client` ')
-        print('>>> download: `frcv filename`, file should be under folder `server`')
-        print('>>> exit    : press `Enter` key directly')
+        print('>>> upload  : `fsnd filename`')
+        print('>>> download: `frcv filename`')
+        print('>>> exit    : input nothing:)')
         while True:
             line = input('>>> ')
             if line == '': # exit
