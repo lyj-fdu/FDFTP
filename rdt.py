@@ -15,7 +15,7 @@ class rdt:
         self.CONG_TIMEOUT = DEFAULT_CONG_TIMEOUT
         self.RWND = DEFAULT_RWND
         self.temp_filepath = ''
-        self.transaction_no = -1
+        self.transaction_no = 0
     
     def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, txno=-666, data=' '.encode()):
         '''make transport layer packet'''
@@ -178,7 +178,6 @@ class rdt:
                 sndpkt = self.make_pkt(isfin=1, txno=txno)
                 self.udt_send(sndpkt, addr)
                 continue
-            self.rtt_times += 1
             if isfin == 0:
                 if DEBUG: print(f'receive seq={seq}')
                 # update ack, expectedseqnum, buffer
@@ -311,7 +310,6 @@ class rdt:
     def rdt_download_file(self, dest_path, addr):
         '''client or server download file'''
         self.transaction_no += 1
-        self.rtt_times = 0
         if DEBUG: print(f'txno={self.transaction_no}')
         # remove file
         if os.path.isfile(dest_path): 

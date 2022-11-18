@@ -8,23 +8,30 @@ class Client(rdt):
 
     def connect(self, server_addr):
         '''handshake with welcome_socket and connect with connection socket'''
-        # handshake 1
         self.server_addr = server_addr
-        sndpkt = self.make_pkt(isfin=1, issyn=1, txno=-1)
-        self.udt_send(sndpkt, self.server_addr)
-        self.temp_filepath = 'client/temp/' + str(self.socket.getsockname()[1]) + '.txt'
-        # handshake 2 & 3
-        rtt_beg = time.time()
-        self.rdt_download_file(self.temp_filepath, self.server_addr)
-        rtt_end = time.time()
-        self.file = open(self.temp_filepath, 'r')
-        connection_port = str(self.file.read())
-        self.file.close()
-        self.server_addr = (server_addr[0], int(connection_port))
+        while True:
+            # handshake 1
+            sndpkt = self.make_pkt(seq=1,issyn=1)
+            if DEBUG: print('handshake 1')
+            rtt_beg = time.time()
+            self.udt_send(sndpkt, self.server_addr)
+            # handshake 2
+            rcvpkt, addr = self.rdt_rcv()
+            if DEBUG: print('handshake 2')
+            rtt_end = time.time()
+            length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
+            if not (issyn == 1): continue
+            # handshake 3
+            self.server_addr = (addr[0], int(data.decode()[:length]))
+            re_sndpkt = self.make_pkt(seq=2,issyn=1)
+            self.udt_send(re_sndpkt, self.server_addr)
+            if DEBUG: print('handshake 3')
+            break
         # send cong_timeout
-        self.CONG_TIMEOUT = (rtt_end - rtt_beg) / self.rtt_times * TREMBLE_RATE
+        self.CONG_TIMEOUT = (rtt_end - rtt_beg) * TREMBLE_RATE
         self.RWND = math.floor((MAX_BANDWIDTH_Mbps * 1000000 / TREMBLE_RATE) * self.CONG_TIMEOUT / 8 / MSS)
         if DEBUG: print(f'cong_timeout={self.CONG_TIMEOUT}, rwnd={self.RWND}')
+        self.temp_filepath = 'client/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         self.file = open(self.temp_filepath, 'w')
         self.file.write(f'{self.CONG_TIMEOUT} {self.RWND}')
         self.file.close()
@@ -79,8 +86,9 @@ def main():
     # 3 handshakes and connect
     try:
         client_socket.connect((SERVER_IP, SERVER_PORT))
-        print('>>> input `fsnd filename` to upload, or `frcv filename` to download, or nothing to exit:)')
-        print('  > upload file should be under folder `client`, download file should be under folder `server`')
+        print('>>> upload  : `fsnd filename`, file should be under folder `client` ')
+        print('>>> download: `frcv filename`, file should be under folder `server`')
+        print('>>> exit    : press `Enter` key directly')
         while True:
             line = input('>>> ')
             if line == '': # exit

@@ -20,16 +20,19 @@ class WelcomeServer(Server):
             # handshake 1
             rcvpkt, client_addr = self.rdt_rcv()
             length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
-            # handshake 2 & 3
-            if issyn == 1:
-                self.transaction_no = -1
-                self.file = open(self.temp_filepath, 'w')
-                self.file.write(f'{self.connection_port}')
-                self.file.close()
-                self.rdt_upload_file(self.temp_filepath, client_addr, True)
-                break
+            if DEBUG: print('handshake 1')
+            if not (issyn == 1 and seq == 1): 
+                sndpkt = self.make_pkt(issyn=0)
+                self.udt_send(sndpkt, client_addr)
+                continue
+            # handshake 2
+            connection_port = str(self.connection_port)
+            sndpkt = self.make_pkt(length=len(connection_port), issyn=1, data=connection_port.encode())
+            self.udt_send(sndpkt, client_addr)
+            if DEBUG: print('handshake 2')
+            break
         self.connection_port += 1
-        return (self.connection_port - 1, client_addr)
+        return self.connection_port - 1
 
 class ConnectionServer(Server):
 
@@ -37,10 +40,16 @@ class ConnectionServer(Server):
         '''create socket'''
         Server.__init__(self, port)
 
-    def connect(self, client_addr):
+    def connect(self):
         '''connect client'''
+        # handshake 3
+        rcvpkt, client_addr = self.rdt_rcv()
+        length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
+        if not (issyn == 1 and seq == 2):
+            raise Exception('handshake fail, client fail to connect')
+        if DEBUG: print('handshake 3')
+        print(f'>>> {client_addr} connected')
         # connect with client socket
-        self.transaction_no = 0
         self.client_addr = client_addr
         self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         self.rdt_download_file(self.temp_filepath, self.client_addr)
@@ -48,7 +57,7 @@ class ConnectionServer(Server):
         content = str(self.file.read()).split(' ')
         if len(content) != 2:
             if DEBUG: print(content)
-            raise Exception('client fail to connect')
+            raise Exception('get info fail, client fail to connect')
         self.CONG_TIMEOUT = float(content[0])
         self.RWND = int(content[1])
         self.file.close()
@@ -84,14 +93,13 @@ class ConnectionServer(Server):
                 else: # download file
                     self.rdt_download_file(dest_path, self.client_addr)
 
-def communicate(connection_port, client_addr):
+def communicate(connection_port):
     '''connection socket thread'''
     # connection socket
     connection_socket = ConnectionServer(connection_port)
     # connect
     try:
-        connection_socket.connect(client_addr)
-        print(f'>>> {client_addr} connected')
+        connection_socket.connect()
         while True: # receive 1 file each time
             connection_socket.rdt_transfer()
     except Exception as e:
@@ -106,9 +114,9 @@ def main():
     try:
         while True:
             # 3 handshakes
-            connection_port, client_addr = welcome_socket.accept()
+            connection_port = welcome_socket.accept()
             # connection socket works
-            connection = threading.Thread(target=communicate, args=(connection_port, client_addr))
+            connection = threading.Thread(target=communicate, args=(connection_port,))
             connection.start()
     except Exception as e:
         print(str(e))
