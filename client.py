@@ -28,7 +28,6 @@ class Client(rdt):
         self.file = open(self.temp_filepath, 'w')
         self.file.write(f'{self.CONG_TIMEOUT} {self.RWND}')
         self.file.close()
-        self.transaction_no = 0 # start connection with connection socket
         self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
 
     def rdt_transfer(self, op, filename):

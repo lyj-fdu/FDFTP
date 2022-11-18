@@ -15,7 +15,7 @@ class rdt:
         self.CONG_TIMEOUT = DEFAULT_CONG_TIMEOUT
         self.RWND = DEFAULT_RWND
         self.temp_filepath = ''
-        self.transaction_no = 0
+        self.transaction_no = -1
     
     def make_pkt(self, length=MSS, seq=0, ack=0, isfin=0, issyn=0, txno=-666, data=' '.encode()):
         '''make transport layer packet'''

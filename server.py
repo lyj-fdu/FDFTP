@@ -22,6 +22,7 @@ class WelcomeServer(Server):
             length, seq, ack, isfin, issyn, txno, data = self.extract(rcvpkt)
             # handshake 2 & 3
             if issyn == 1:
+                self.transaction_no = -1
                 self.file = open(self.temp_filepath, 'w')
                 self.file.write(f'{self.connection_port}')
                 self.file.close()
@@ -39,6 +40,7 @@ class ConnectionServer(Server):
     def connect(self, client_addr):
         '''connect client'''
         # connect with client socket
+        self.transaction_no = 0
         self.client_addr = client_addr
         self.temp_filepath = 'server/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         self.rdt_download_file(self.temp_filepath, self.client_addr)
