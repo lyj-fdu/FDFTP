@@ -82,7 +82,7 @@ class Client(rdt):
         self.file = open(self.temp_filepath, 'w')
         self.file.write('shutdown')
         self.file.close()
-        self.socket.settimeout(3)
+        self.socket.settimeout(1)
         self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
 
 def main():
