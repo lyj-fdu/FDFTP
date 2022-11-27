@@ -1,8 +1,7 @@
 '''server'''
 # server ip
 SERVER_IP = '8.218.117.184' # remote server
-# SERVER_IP = 'localhost' # look back
-# SERVER_IP = '10.187.254.199' # virtual machine
+# SERVER_IP = '172.17.50.166' # remote server
 # welcome socket port
 # connection socket will increase from this
 # it's set casually on available port in the computer
