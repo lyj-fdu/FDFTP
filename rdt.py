@@ -86,6 +86,9 @@ class rdt:
                             if self.nextseqnum > self.sended:
                                 if DEBUG: print(f'[{self.send_state}] send   seq={self.nextseqnum} <fin>')
                                 self.sended += 1
+                                if (not DEBUG) and (int(self.PACKETS_NUM / 10) > 0):
+                                    if int(self.sended) == 10 * int(self.PACKETS_NUM / 10): print('#')
+                                    elif int(self.sended) % int(self.PACKETS_NUM / 10) == 0: print('#', end='')
                             else:
                                 if DEBUG: print(f'[{self.send_state}] resend seq={self.nextseqnum} <fin>')
                                 self.resend += 1
@@ -98,6 +101,9 @@ class rdt:
                             if self.nextseqnum > self.sended:
                                 if DEBUG: print(f'[{self.send_state}] send   seq={self.nextseqnum}, cwnd={self.cwnd}')
                                 self.sended += 1
+                                if (not DEBUG) and (int(self.PACKETS_NUM / 10) > 0):
+                                    if int(self.sended) == 10 * int(self.PACKETS_NUM / 10): print('#')
+                                    elif int(self.sended) % int(self.PACKETS_NUM / 10) == 0: print('#', end='')
                             else:
                                 if DEBUG: print(f'[{self.send_state}] resend seq={self.nextseqnum}, cwnd={self.cwnd}')
                                 self.resend += 1
