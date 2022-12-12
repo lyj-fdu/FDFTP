@@ -1,7 +1,7 @@
 '''server'''
 # server ip
-SERVER_IP = '8.218.117.184' # remote server
-# SERVER_IP = '172.17.50.166' # remote server
+SERVER_IP = '8.210.99.245' # remote server
+# SERVER_IP = '172.19.6.185' # remote server
 # welcome socket port
 # connection socket will increase from this
 # it's set casually on available port in the computer
@@ -24,7 +24,7 @@ PERFORMANCE = True
 # NOTE: seq and ack are int in packet, 
 #       which means can send up to roughly 2GB
 #       we can set them to q(long long) to send more
-MSS = 1448
+MSS = 1400
 # socket.recvfrom(BUFSIZE)
 # ref: https://cloud.tencent.com/developer/article/2107386
 # abstract: 2048 is enough, because ethernet transmits less than 1500 Bytes
