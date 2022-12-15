@@ -8,12 +8,12 @@ SERVER_IP = '8.210.99.245' # remote server
 SERVER_PORT = 8888
 # server maxium bandwith
 MAX_BANDWIDTH_Mbps = 30.0
-# tremble rate
-TREMBLE_RATE = 1
 
 '''debug'''
 # print some info during rdt transfer
 DEBUG = False
+# print dynamic measurement of RTT
+DYNAMIC = True
 # print performance such as rate and pkt_loss_rate
 PERFORMANCE = True
 

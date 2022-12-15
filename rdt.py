@@ -51,11 +51,13 @@ class rdt:
         '''sender: send packets inside cwnd, GBN if timeout'''
         while not self.disconnect:
             with self.lock:
+                urgent = False
                 # send all packets
                 if self.PACKETS_NUM < self.send_base: 
                     break
                 # timeout
                 if self.CONG_TIMEOUT < (time.time() - self.timer):
+                    urgent = True
                     self.measure_rtt = False
                     self.dulplicate_ack = 0
                     self.ssthresh = max(float(math.floor(self.cwnd / 2)), DEFAULT_CWND)
@@ -76,7 +78,7 @@ class rdt:
                         self.bufferedseqnum = self.nextseqnum
                         self.send_now = True # new pkt
                     # send packet
-                    if self.send_now:
+                    if self.send_now or urgent:
                         payload = self.send_buffer[self.nextseqnum - self.send_base]
                         if self.nextseqnum == self.PACKETS_NUM:
                             sndpkt = self.make_pkt(length=self.LAST_PACKET_SIZE, seq=self.nextseqnum, isfin=1, data=payload)
@@ -144,13 +146,14 @@ class rdt:
                                 self.timer = time.time()
                         # valid ack
                         else:
+                            # dynamic measure rtt
                             if self.measure_rtt and self.rtt_target_seq == ack:
                                 sample_rtt = time.time() - self.rtt_start
                                 self.estimate_rtt = (1 - 0.125) * self.estimate_rtt + 0.125 * sample_rtt
                                 self.dev_rtt = (1 - 0.25) * self.dev_rtt + 0.25 * abs(sample_rtt - self.estimate_rtt)
                                 self.CONG_TIMEOUT = self.estimate_rtt + 4 * self.dev_rtt
                                 self.RWND = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.CONG_TIMEOUT / 8 / MSS)
-                                if not DEBUG: print(f'seq={self.rtt_target_seq} timeout={self.CONG_TIMEOUT} rwnd={self.RWND}')
+                                if DYNAMIC: print(f'seq={self.rtt_target_seq} timeout={self.CONG_TIMEOUT} rwnd={self.RWND}')
                                 self.measure_rtt = False
                             if self.send_state == 'FR':
                                 # partial ack, stay in FR
