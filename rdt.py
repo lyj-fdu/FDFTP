@@ -58,8 +58,8 @@ class rdt:
                 if self.CONG_TIMEOUT < (time.time() - self.timer):
                     self.measure_rtt = False
                     self.dulplicate_ack = 0
-                    self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
-                    self.cwnd = 1.0
+                    self.ssthresh = max(float(math.floor(self.cwnd / 2)), DEFAULT_CWND)
+                    self.cwnd = DEFAULT_CWND
                     self.send_state = 'SS'
                     self.nextseqnum = self.send_base
                     self.send_now = True # retransmit
@@ -131,7 +131,7 @@ class rdt:
                             self.dulplicate_ack += 1
                             # FR
                             if self.dulplicate_ack == 3:
-                                self.ssthresh = max(float(math.floor(self.cwnd / 2)), 1.0)
+                                self.ssthresh = max(float(math.floor(self.cwnd / 2)), DEFAULT_CWND)
                                 self.cwnd = self.ssthresh + 3.0
                                 self.send_state = 'FR'
                                 self.nextseqnum = self.send_base
@@ -150,8 +150,8 @@ class rdt:
                                 self.dev_rtt = (1 - 0.25) * self.dev_rtt + 0.25 * abs(sample_rtt - self.estimate_rtt)
                                 self.CONG_TIMEOUT = self.estimate_rtt + 4 * self.dev_rtt
                                 self.RWND = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.CONG_TIMEOUT / 8 / MSS)
+                                if not DEBUG: print(f'seq={self.rtt_target_seq} timeout={self.CONG_TIMEOUT} rwnd={self.RWND}')
                                 self.measure_rtt = False
-                                print(f'seq={self.rtt_target_seq} timeout={self.estimate_rtt} rwnd={self.RWND}')
                             if self.send_state == 'FR':
                                 # partial ack, stay in FR
                                 if ack < self.send_base + int(self.cwnd) - 1:

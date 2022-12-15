@@ -13,7 +13,7 @@ TREMBLE_RATE = 1
 
 '''debug'''
 # print some info during rdt transfer
-DEBUG = True
+DEBUG = False
 # print performance such as rate and pkt_loss_rate
 PERFORMANCE = True
 
