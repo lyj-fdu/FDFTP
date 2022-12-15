@@ -37,7 +37,7 @@ class Client(rdt):
         self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
         # print info
         print(f'>>> server {self.server_addr} connected')
-        print(f'  > cong_timeout={self.CONG_TIMEOUT}s, rwnd={self.RWND}pkts')
+        print(f'  > timeout={self.CONG_TIMEOUT} rwnd={self.RWND}')
         print('>>> cmd')
         print('  > upload  : `fsnd filename`')
         print('  > download: `frcv filename`')

@@ -129,10 +129,10 @@ class rdt:
                             pass
                         # dulplicate ack
                         elif ack == self.send_base - 1:
-                            self.measure_rtt = False
                             self.dulplicate_ack += 1
                             # FR
                             if self.dulplicate_ack == 3:
+                                self.measure_rtt = False
                                 self.ssthresh = max(float(math.floor(self.cwnd / 2)), DEFAULT_CWND)
                                 self.cwnd = self.ssthresh + 3.0
                                 self.send_state = 'FR'
@@ -158,6 +158,7 @@ class rdt:
                             if self.send_state == 'FR':
                                 # partial ack, stay in FR
                                 if ack < self.send_base + int(self.cwnd) - 1:
+                                    self.measure_rtt = False
                                     self.send_now = True
                                 # complete ack, FR to CA
                                 else:
