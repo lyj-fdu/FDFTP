@@ -67,6 +67,7 @@ class rdt:
                     self.nextseqnum = self.send_base
                     self.send_now = True # retransmit
                     self.timer = time.time()
+                    self.timeout *= 2
                     if DEBUG: print(f'timeout ssthresh={self.ssthresh}')
                 # send packet
                 while self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + window_size and self.nextseqnum <= self.PACKETS_NUM:
@@ -131,7 +132,6 @@ class rdt:
                         # dulplicate ack
                         elif ack == self.send_base - 1:
                             self.dulplicate_ack += 1
-                            # FR
                             if self.dulplicate_ack == 3:
                                 self.measure_rtt = False
                                 self.ssthresh = max(float(math.floor(self.cwnd / 2)), DEFAULT_CWND)
@@ -156,9 +156,11 @@ class rdt:
                                 self.rwnd = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.timeout_interval / 8 / MSS)
                                 if DYNAMIC: print(f'seq={self.rtt_target_seq} timeout={self.timeout_interval} rwnd={self.rwnd}')
                                 self.measure_rtt = False
+                            # back to CA from FR
                             if self.send_state == 'FR':
                                 self.cwnd = self.ssthresh
                                 self.send_state = 'CA'
+                            # adjust sender
                             self.dulplicate_ack = 0
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
