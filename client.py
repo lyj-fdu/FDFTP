@@ -28,16 +28,16 @@ class Client(rdt):
             if DEBUG: print('handshake 3')
             break
         # send cong_timeout
-        self.CONG_TIMEOUT = rtt_end - rtt_beg
-        self.RWND = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.CONG_TIMEOUT / 8 / MSS)
+        self.timeout = rtt_end - rtt_beg
+        self.rwnd = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.timeout / 8 / MSS)
         self.temp_filepath = 'client/temp/' + str(self.socket.getsockname()[1]) + '.txt'
         self.file = open(self.temp_filepath, 'w')
-        self.file.write(f'{self.CONG_TIMEOUT} {self.RWND}')
+        self.file.write(f'{self.timeout} {self.rwnd}')
         self.file.close()
         self.rdt_upload_file(self.temp_filepath, self.server_addr, True)
         # print info
         print(f'>>> server {self.server_addr} connected')
-        print(f'  > timeout={self.CONG_TIMEOUT} rwnd={self.RWND}')
+        print(f'  > timeout={self.timeout} rwnd={self.rwnd}')
         print('>>> cmd')
         print('  > upload  : `fsnd filename`')
         print('  > download: `frcv filename`')

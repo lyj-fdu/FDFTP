@@ -56,8 +56,8 @@ class ConnectionServer(Server):
         if len(content) != 2:
             if DEBUG: print(content)
             raise Exception('get info fail, client fail to connect')
-        self.CONG_TIMEOUT = float(content[0])
-        self.RWND = int(content[1])
+        self.timeout = float(content[0])
+        self.rwnd = int(content[1])
         self.file.close()
 
     def rdt_transfer(self):

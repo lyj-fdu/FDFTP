@@ -12,8 +12,8 @@ class rdt:
     def __init__(self):
         '''create UDP socket'''
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.CONG_TIMEOUT = DEFAULT_CONG_TIMEOUT
-        self.RWND = DEFAULT_RWND
+        self.timeout = DEFAULT_CONG_TIMEOUT
+        self.rwnd = DEFAULT_RWND
         self.temp_filepath = ''
         self.transaction_no = 0
     
@@ -52,11 +52,12 @@ class rdt:
         while not self.disconnect:
             with self.lock:
                 urgent = False
+                window_size = min(int(self.cwnd), int(self.rwnd))
                 # send all packets
                 if self.PACKETS_NUM < self.send_base: 
                     break
                 # timeout
-                if self.CONG_TIMEOUT < (time.time() - self.timer):
+                if self.timeout < (time.time() - self.timer):
                     urgent = True
                     self.measure_rtt = False
                     self.dulplicate_ack = 0
@@ -68,7 +69,7 @@ class rdt:
                     self.timer = time.time()
                     if DEBUG: print(f'timeout ssthresh={self.ssthresh}')
                 # send packet
-                while self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + int(self.cwnd) and self.nextseqnum <= self.PACKETS_NUM:
+                while self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + window_size and self.nextseqnum <= self.PACKETS_NUM:
                     # buffer payload
                     if self.bufferedseqnum < self.nextseqnum:
                         if self.nextseqnum == self.PACKETS_NUM:
@@ -139,11 +140,11 @@ class rdt:
                                 self.nextseqnum = self.send_base
                                 self.send_now = True # fast_retransmit
                                 self.timer = time.time()
+                                self.timeout = self.timeout_interval
                             if self.dulplicate_ack > 3:
                                 self.cwnd += 1.0
-                                if self.cwnd > self.RWND: 
-                                    self.cwnd = float(self.RWND)
                                 self.timer = time.time()
+                                self.timeout = self.timeout_interval
                         # valid ack
                         else:
                             # dynamic measure rtt
@@ -151,9 +152,9 @@ class rdt:
                                 sample_rtt = time.time() - self.rtt_start
                                 self.estimate_rtt = (1 - 0.125) * self.estimate_rtt + 0.125 * sample_rtt
                                 self.dev_rtt = (1 - 0.25) * self.dev_rtt + 0.25 * abs(sample_rtt - self.estimate_rtt)
-                                self.CONG_TIMEOUT = self.estimate_rtt + 4 * self.dev_rtt
-                                self.RWND = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.CONG_TIMEOUT / 8 / MSS)
-                                if DYNAMIC: print(f'seq={self.rtt_target_seq} timeout={self.CONG_TIMEOUT} rwnd={self.RWND}')
+                                self.timeout_interval = self.estimate_rtt + 4 * self.dev_rtt
+                                self.rwnd = math.floor(MAX_BANDWIDTH_Mbps * 1000000 * self.timeout_interval / 8 / MSS)
+                                if DYNAMIC: print(f'seq={self.rtt_target_seq} timeout={self.timeout_interval} rwnd={self.rwnd}')
                                 self.measure_rtt = False
                             if self.send_state == 'FR':
                                 # partial ack, stay in FR
@@ -176,9 +177,8 @@ class rdt:
                                     self.cwnd += 1.0
                                     if self.cwnd > self.ssthresh:
                                         self.send_state = 'CA'
-                                if self.cwnd > self.RWND: 
-                                    self.cwnd = float(self.RWND)
                             self.timer = time.time()
+                            self.timeout = self.timeout_interval
                     else:
                         if DEBUG: print(f'receive ack={ack} <finack>')
                         self.send_base = self.PACKETS_NUM + 1 # terminate __send_msg_pkt
@@ -199,7 +199,7 @@ class rdt:
             if isfin == 0:
                 if DEBUG: print(f'receive seq={seq}')
                 # update ack, expectedseqnum, buffer
-                if seq < self.expectedseqnum + self.RWND:
+                if seq < self.expectedseqnum + self.rwnd:
                     if seq < self.expectedseqnum:
                         ack = seq
                     else:
@@ -240,7 +240,7 @@ class rdt:
             else:
                 if DEBUG: print(f'receive seq={seq} <fin>')
                 # update ack, buffer
-                if seq < self.expectedseqnum + self.RWND:
+                if seq < self.expectedseqnum + self.rwnd:
                     if seq < self.expectedseqnum:
                         isfin = 0
                         ack = seq
@@ -286,15 +286,16 @@ class rdt:
         self.sended = 0
         self.resend = 0
         # congestion controls
-        self.ssthresh = self.RWND
+        self.ssthresh = self.rwnd
         self.cwnd = DEFAULT_CWND
         self.dulplicate_ack = 0
         self.send_state = 'SS'
         self.measure_rtt = False
         self.rtt_start = 0
         self.rtt_target_seq = 0
-        self.estimate_rtt = self.CONG_TIMEOUT
+        self.estimate_rtt = self.timeout
         self.dev_rtt = 0
+        self.timeout_interval = self.timeout
         # semaphores and lock between 2 thead
         self.disconnect = False # sem
         self.lock = threading.Lock() # lock
@@ -346,8 +347,8 @@ class rdt:
         self.file = open(dest_path, 'wb')
         # receive controls
         self.expectedseqnum = 1
-        self.receive_buffer = [None] * self.RWND
-        self.receive_acked = [False] * self.RWND
+        self.receive_buffer = [None] * DEFAULT_RWND
+        self.receive_acked = [False] * DEFAULT_RWND
         self.deliver_count = 0
         self.deliver_data = bytes()
         # receive pkts and send acks

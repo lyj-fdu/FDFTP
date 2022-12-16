@@ -50,8 +50,5 @@ DEFAULT_CWND = 10.0
 # it's set casually, of course, the bigger, the better, only if <= 43
 WRITE_MAX = 45
 # receiver window
-# ref: https://www.cnblogs.com/virusolf/p/4332652.html
-# abstract: too small will not fully ues bandwidth
-#           too big will cause stop-wait of TCP-NewReno if too many packets lost
 # it's set casually of a medium number
-DEFAULT_RWND = 200
+DEFAULT_RWND = 999
