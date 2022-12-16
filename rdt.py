@@ -68,7 +68,7 @@ class rdt:
                     self.send_now = True # retransmit
                     self.timer = time.time()
                     self.timeout *= 2
-                    if DEBUG: print(f'timeout ssthresh={self.ssthresh}')
+                    if DEBUG: print(f'timeout={self.timeout} ssthresh={self.ssthresh}')
                 # send packet
                 while self.send_base <= self.nextseqnum and self.nextseqnum < self.send_base + window_size and self.nextseqnum <= self.PACKETS_NUM:
                     # buffer payload
