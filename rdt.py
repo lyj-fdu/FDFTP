@@ -157,14 +157,8 @@ class rdt:
                                 if DYNAMIC: print(f'seq={self.rtt_target_seq} timeout={self.timeout_interval} rwnd={self.rwnd}')
                                 self.measure_rtt = False
                             if self.send_state == 'FR':
-                                # partial ack, stay in FR
-                                if ack < self.send_base + int(self.cwnd) - 1:
-                                    self.measure_rtt = False
-                                    self.send_now = True
-                                # complete ack, FR to CA
-                                else:
-                                    self.cwnd = self.ssthresh
-                                    self.send_state = 'CA'
+                                self.cwnd = self.ssthresh
+                                self.send_state = 'CA'
                             self.dulplicate_ack = 0
                             gap = ack - self.send_base + 1
                             self.send_base = self.send_base + gap
